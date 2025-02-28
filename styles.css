@@ -13,27 +13,33 @@ html {
 }
 
 body {
-    background-color: #121212;
-    margin: 0;
-    padding: 0;
     font-family: 'Inconsolata', monospace;
+    margin: 0;
+    padding: 20px 16px;
+    background-color: #121212;
     color: #e0e0e0;
     min-height: 100vh;
-    min-height: -webkit-fill-available;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    overflow-x: hidden;
+    transition: background-color 0.3s, color 0.3s;
+    /* Prevent scrolling on mobile devices */
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
 }
 
 .container {
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    height: 100%;
-    padding: 20px 0;
-    box-sizing: border-box;
-    position: relative;
     flex: 1;
+    height: calc(100vh - 40px); /* Subtract total padding */
+    overflow: hidden;
 }
 
 /* Make container taller in standalone mode */
@@ -160,25 +166,25 @@ h1 {
 
 .grid-container {
     width: 100%;
+    height: auto;
     padding: 0;
     box-sizing: border-box;
     margin: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
 }
 
-.grid {
+#squares-grid {
     display: grid;
     grid-template-columns: repeat(10, 1fr);
     grid-gap: 4px;
-    width: 100%; /* True edge to edge */
-    margin: 0;
-    overflow-y: auto;
-    min-height: 300px;
-    max-height: 45vh;
-    padding: 16px 16px; /* Keep vertical padding for squares */
+    width: 100%;
+    padding: 0;
+    margin: 0 auto;
+    max-height: calc(100vh - 250px); /* Ensure it fits without scrolling */
     box-sizing: border-box;
-    background-color: transparent; /* Remove dark background */
-    border-radius: 0; /* Remove border radius for edge to edge */
-    box-shadow: none; /* Remove the inset shadow */
 }
 
 .square {
@@ -202,28 +208,31 @@ h1 {
 }
 
 .input-container {
-    margin-top: 40px; /* More space between grid and input field */
+    margin-top: 20px; /* Reduced space between grid and input field */
     width: 100%;
-    padding: 0 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0 16px;
     box-sizing: border-box;
+    position: relative;
+    bottom: 0;
 }
 
-label {
-    color: #e0e0e0;
-}
-
-input[type="text"] {
+#user-sentence {
     width: 100%;
-    max-width: 500px; /* Make the input field wider */
     padding: 12px;
-    border: none;
-    border-radius: 8px;
-    background-color:  #121212;
+    margin-bottom: 20px;
+    border: 1px solid #121212;
+    border-radius: 4px;
+    background-color: #121212;
     color: white;
     font-family: 'Inconsolata', monospace;
-    box-sizing: border-box;
-    text-align: center;
     font-size: 1em;
+    resize: none;
+    box-sizing: border-box;
+    align-items: center;
+    text-align: center;
 }
 
 .sentence {
@@ -401,6 +410,48 @@ html, body {
     top: 0;
     left: 0;
     z-index: 9999;
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px; /* Reduced from larger value */
+    width: 100%;
+    padding: 0 16px;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+}
+
+.button-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: 10px; /* Reduced margin */
+    position: relative;
+}
+
+/* Fix height calculations for mobile devices */
+@media (max-height: 700px) {
+    .day-container {
+        margin-bottom: 25px;
+    }
+    
+    .grid-container {
+        margin-bottom: 5px;
+    }
+    
+    .input-container {
+        margin-top: 0px;
+    }
+    
+    #squares-grid {
+        max-height: calc(100vh - 200px);
+    }
+    
+    .controls {
+        margin-top: 5px;
+        margin-bottom: 5px;
+    }
 }
 
 @media (max-width: 768px) {
