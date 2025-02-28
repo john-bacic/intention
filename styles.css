@@ -13,27 +13,37 @@ html {
 }
 
 body {
-    height: 100%;
-    width: 100%;
+    background-color: #121212;
     margin: 0;
     padding: 0;
-    overflow: hidden;
+    font-family: 'Inconsolata', monospace;
+    color: #e0e0e0;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
     display: flex;
     flex-direction: column;
-    background-color: #121212;
-    color: #e0e0e0;
-    font-family: 'Inconsolata', monospace;
-    position: fixed;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
 }
 
 .container {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    height: 100%;
+    padding: 20px 0;
+    box-sizing: border-box;
+    position: relative;
+    flex: 1;
+}
+
+/* Make container taller in standalone mode */
+.standalone-mode .container {
+    padding-top: calc(20px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    padding-left: 0;
+    padding-right: 0;
     height: 100vh;
-    padding: 20px;
-    gap: 20px;
-    padding-top: 60px; /* Add extra padding at the top to avoid overlap with gear icon */
+    height: -webkit-fill-available;
 }
 
 h1 {
@@ -43,20 +53,33 @@ h1 {
 }
 
 .days-container {
-    flex: 1;
-    max-height: 140px; /* Increased height to accommodate the day label */
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
     position: relative;
+    margin-top: 40px;
+    margin-bottom: 10px;
+    padding: 0 50px;
+}
+
+/* Adjust days container in standalone mode */
+.standalone-mode .days-container {
+    margin-top: calc(20px + env(safe-area-inset-top, 0px));
 }
 
 .days {
     display: flex;
     justify-content: space-around;
-    margin-top: 10px; /* Added top margin to make room for the label */
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 10px 0;
 }
 
 .day {
-    width: 50px;
-    min-height: 60px; /* Increased height */
+    width: 45px;
+    min-height: 60px;
     background-color: #333;
     display: flex;
     flex-direction: column;
@@ -66,8 +89,9 @@ h1 {
     font-weight: bold;
     cursor: pointer;
     transition: background-color 0.3s;
-    color: #00000055; /* Future days are dimmed */
+    color: #00000055;
     position: relative;
+    margin: 0 2px;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
 }
@@ -75,30 +99,44 @@ h1 {
 .day:active {
     transform: scale(0.95);
     opacity: 0.9;
+    
 }
 
 .day-label {
     font-size: 0.7em;
-    font-weight: bold;
-    margin-bottom: 4px;
-    opacity: 0;
+    font-weight: normal;
+    position: absolute;
+    top: 5px;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0; /* Hidden by default */
     transition: opacity 0.3s;
 }
 
 .day-number {
-    font-size: 1.5em; /* Make the number larger */
-    font-weight: 900; /* Extra bold */
+    font-size: 1.6em;
+    font-weight: bold;
+    margin-top: 8px;
+    
+}
+.day-number.active {
+    color: white;
+    text-shadow: 1px 1px 2px #000;  
+    
 }
 
 .day.active {
     background-color: #4CAF50;
     color: white;
     text-shadow: 1px 1px 2px #000;
+    
 }
 
 .day.active .day-label {
     opacity: 1;
     color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .day.completed {
@@ -121,77 +159,86 @@ h1 {
 }
 
 .grid-container {
-    flex: 5;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
+    width: 100%;
+    padding: 0;
+    box-sizing: border-box;
+    margin: 0;
 }
 
 .grid {
     display: grid;
     grid-template-columns: repeat(10, 1fr);
-    grid-template-rows: repeat(10, 1fr);
-    gap: 5px;
-    width: 100%;
-    max-width: 600px;
-    aspect-ratio: 1/1;
-    margin: 0 auto;
+    grid-gap: 4px;
+    width: 100%; /* True edge to edge */
+    margin: 0;
+    overflow-y: auto;
+    min-height: 300px;
+    max-height: 45vh;
+    padding: 16px 16px; /* Keep vertical padding for squares */
+    box-sizing: border-box;
+    background-color: transparent; /* Remove dark background */
+    border-radius: 0; /* Remove border radius for edge to edge */
+    box-shadow: none; /* Remove the inset shadow */
 }
 
 .square {
-    width: 100%;
-    height: 100%;
-    background-color: #333;
-    border-radius: 5px;
-    transition: background-color 0.3s;
-    border: 1px solid #333;
+    aspect-ratio: 1/1;
+    background-color: #222;
+    border-radius: 4px;
+    cursor: default;
+    transition: background-color 0.2s;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: .9em;
+    font-size: 1.1em;
     font-family: 'Inconsolata', monospace;
-    font-weight: 900; /* Changed from bold to 900 for extra bold */
-    color: transparent; /* Hide the number by default */
+    font-weight: 900;
+    color: transparent; /* Hide numbers by default */
 }
 
 .square.colored {
-    color: #fff; /* Show the number when colored */
-    font-weight: 900;
-    text-shadow: 1px 1px 3px #000000bb;
+    color: white !important; /* Show numbers when colored */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .input-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
+    margin-top: 40px; /* More space between grid and input field */
+    width: 100%;
+    padding: 0 20px;
+    box-sizing: border-box;
 }
 
 label {
     color: #e0e0e0;
 }
 
-#user-sentence {
-    width: 80%;
-    max-width: 500px;
-    padding: 10px;
-    border: 2px solid #121212;
-    border-radius: 20px;
-    font-size: 16px;
-    text-align: center;
-    background-color: #121212;
-    color: #e0e0e0;
+input[type="text"] {
+    width: 100%;
+    max-width: 500px; /* Make the input field wider */
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background-color:  #121212;
+    color: white;
     font-family: 'Inconsolata', monospace;
+    box-sizing: border-box;
+    text-align: center;
+    font-size: 1em;
+}
+
+.sentence {
+    margin: 20px 0;
+    text-align: center;
+    font-size: 1.2em;
+    padding: 0 20px;
 }
 
 .button-container {
-    flex: 2;
+    margin-top: 30px;
+    margin-bottom: 40px;
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-bottom: 20px;
 }
 
 #count-button {
@@ -219,45 +266,24 @@ label {
 }
 
 #count-button:active {
-    transform: scale(0.95);
-    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.5);
-}
-
-/* Creating a custom plus sign with rounded ends */
-#count-button::before {
-    content: "";
-    position: absolute;
-    width: 40%;
-    height: 12%;
-    background-color: white;
-    border-radius: 10px;
-    box-shadow: 0px 2px 3px rgba(0, 0, 0, 0.3);
-}
-
-#count-button::after {
-    content: "";
-    position: absolute;
-    height: 40%;
-    width: 12%;
-    background-color: white;
-    border-radius: 10px;
-    box-shadow: 0px 2px 3px rgba(0, 0, 0, 0.3);
-}
-
-/* Style for completed button (checkmark) */
-#count-button.completed {
-    color: white;
-    text-shadow: 0px 2px 3px rgba(0, 0, 0, 0.5);
-}
-
-#count-button.completed::before,
-#count-button.completed::after {
-    display: none;
+    transform: scale(0.85); /* Stronger scale down effect */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 #count-button:hover {
     transform: scale(1.05);
     box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
+}
+
+#count-button.completed {
+    color: white;
+    text-shadow: 0px 2px 3px rgba(0, 0, 0, 0.5);
+}
+
+.plus-icon {
+    width: 60%;
+    height: 60%;
+    filter: drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.4));
 }
 
 #count-button:disabled {
@@ -266,12 +292,29 @@ label {
     opacity: 0.7;
 }
 
+/* Button animations */
+.button-pressed {
+    animation: buttonPress 0.15s ease-in-out;
+}
+
+@keyframes buttonPress {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.85); }
+    100% { transform: scale(1); }
+}
+
 /* Settings panel styles */
 .settings-container {
-    position: fixed;
+    position: absolute;
     top: 20px;
     right: 20px;
-    z-index: 1000;
+    z-index: 100;
+}
+
+/* Adjust gear icon in standalone mode */
+.standalone-mode .settings-container {
+    top: calc(20px + env(safe-area-inset-top, 20px));
+    right: calc(20px + env(safe-area-inset-right, 0px));
 }
 
 .gear-icon {
@@ -335,17 +378,6 @@ label {
     transform: translateY(1px);
 }
 
-input[type="text"] {
-    width: 100%;
-    padding: 10px 15px;
-    font-size: 16px;
-    border: none;
-    border-radius: 8px;
-    background-color: #333;
-    color: white;
-    font-family: 'Inconsolata', monospace;
-}
-
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -360,14 +392,6 @@ html, body {
     touch-action: manipulation;
 }
 
-/* Full-screen app mode styles */
-.standalone-mode {
-    /* Full height with iOS safe areas */
-    height: 100vh;
-    height: -webkit-fill-available;
-    overflow: hidden;
-}
-
 /* iOS status bar spacer */
 .status-bar-spacer {
     height: env(safe-area-inset-top, 20px);
@@ -377,14 +401,6 @@ html, body {
     top: 0;
     left: 0;
     z-index: 9999;
-}
-
-/* Adjust container for standalone mode */
-.standalone-mode .container {
-    padding-top: env(safe-area-inset-top, 20px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    height: 100vh;
-    height: -webkit-fill-available;
 }
 
 @media (max-width: 768px) {
