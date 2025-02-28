@@ -6,10 +6,13 @@ A simple web app for tracking a 7-day challenge of counting to 100 each day.
 
 - 7 days tracker at the top of the screen
 - 10x10 grid with 100 squares to track daily progress
+- Animated squares with scale effect when they appear
+- Random position generation for numbers
 - Custom motivation sentence input
 - Big button to count and light up squares
 - Progress automatically saved in local storage
 - Responsive design that works on both desktop and mobile
+- No scrolling required - fits on any screen
 
 ## How to Use
 
@@ -35,3 +38,7 @@ location.reload();
 ## Open the App
 
 Simply double-click on the `index.html` file to open it in your default web browser.
+
+## Progressive Web App
+
+This app can be installed on your device as a PWA. When visiting the site, you'll see an "Add to Home Screen" option in your browser.
