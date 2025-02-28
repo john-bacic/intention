@@ -197,6 +197,14 @@ label {
     line-height: 0.9;
     position: relative;
     color: transparent;
+    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+    user-select: none; /* Prevent text selection */
+    outline: none; /* Remove outline */
+}
+
+#count-button:active {
+    transform: scale(0.95);
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.5);
 }
 
 /* Creating a custom plus sign with rounded ends */
@@ -234,11 +242,6 @@ label {
 #count-button:hover {
     transform: scale(1.05);
     box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
-}
-
-#count-button:active {
-    transform: scale(0.95);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
 #count-button:disabled {

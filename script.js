@@ -170,13 +170,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function setupEventListeners() {
-        // Count button event
+        // Count button event - adding both click and touchstart for better mobile response
         countButton.addEventListener('click', handleCountClick);
+        countButton.addEventListener('touchstart', function(e) {
+            e.preventDefault(); // Prevent default to avoid delays
+            handleCountClick();
+        });
         
-        // Prevent double-tap zoom on mobile
+        // Modify the touchend handler to avoid interfering with button taps
         document.addEventListener('touchend', function(e) {
-            // Prevent default behavior for interactive elements
-            if (e.target.closest('#count-button, .day, .square, .gear-icon, #reset-button')) {
+            // Only prevent default on non-button interactive elements
+            if (e.target.closest('.day, .square, .gear-icon, #reset-button') && 
+                !e.target.closest('#count-button')) {
                 e.preventDefault();
             }
         }, { passive: false });
