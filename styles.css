@@ -59,6 +59,13 @@ h1 {
     transition: background-color 0.3s;
     color: #00000055; /* Future days are dimmed */
     position: relative;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+.day:active {
+    transform: scale(0.95);
+    opacity: 0.9;
 }
 
 .day-label {
@@ -264,10 +271,17 @@ label {
     cursor: pointer;
     text-shadow: 0px 2px 3px rgba(0, 0, 0, 0.5);
     transition: transform 0.3s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
 }
 
 .gear-icon:hover {
     transform: rotate(30deg);
+}
+
+.gear-icon:active {
+    transform: rotate(45deg);
+    opacity: 0.8;
 }
 
 .settings-panel {
@@ -298,10 +312,18 @@ label {
     font-weight: bold;
     transition: background-color 0.3s;
     width: 100%;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    outline: none;
 }
 
 #reset-button:hover {
     background-color: #d32f2f;
+}
+
+#reset-button:active {
+    background-color: #b71c1c;
+    transform: translateY(1px);
 }
 
 input[type="text"] {

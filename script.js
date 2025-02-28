@@ -177,11 +177,42 @@ document.addEventListener('DOMContentLoaded', function() {
             handleCountClick();
         });
         
-        // Modify the touchend handler to avoid interfering with button taps
+        // Settings panel toggle - adding touchstart for better mobile response
+        const settingsToggle = document.getElementById('settings-toggle');
+        const settingsPanel = document.getElementById('settings-panel');
+        
+        settingsToggle.addEventListener('click', function() {
+            settingsPanel.classList.toggle('active');
+        });
+        
+        settingsToggle.addEventListener('touchstart', function(e) {
+            e.preventDefault(); // Prevent default to avoid delays
+            settingsPanel.classList.toggle('active');
+        });
+        
+        // Reset button - adding touchstart for better mobile response
+        const resetButton = document.getElementById('reset-button');
+        
+        resetButton.addEventListener('click', function() {
+            if (confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
+                localStorage.removeItem('100TimesChallenge');
+                location.reload();
+            }
+        });
+        
+        resetButton.addEventListener('touchstart', function(e) {
+            e.preventDefault(); // Prevent default to avoid delays
+            if (confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
+                localStorage.removeItem('100TimesChallenge');
+                location.reload();
+            }
+        });
+        
+        // Modify the touchend handler to avoid interfering with interactive elements
         document.addEventListener('touchend', function(e) {
-            // Only prevent default on non-button interactive elements
-            if (e.target.closest('.day, .square, .gear-icon, #reset-button') && 
-                !e.target.closest('#count-button')) {
+            // Only prevent default on day and square elements
+            if (e.target.closest('.day, .square') && 
+                !e.target.closest('#count-button, #settings-toggle, #reset-button')) {
                 e.preventDefault();
             }
         }, { passive: false });
@@ -189,6 +220,19 @@ document.addEventListener('DOMContentLoaded', function() {
         // Day selection event
         days.forEach(day => {
             day.addEventListener('click', function() {
+                // Get the day number element
+                const dayNumberElement = this.querySelector('.day-number');
+                const selectedDay = parseInt(dayNumberElement.textContent);
+                
+                if (selectedDay <= currentDay) {
+                    currentDay = selectedDay;
+                    updateUI();
+                }
+            });
+            
+            day.addEventListener('touchstart', function(e) {
+                e.preventDefault(); // Prevent default to avoid delays
+                
                 // Get the day number element
                 const dayNumberElement = this.querySelector('.day-number');
                 const selectedDay = parseInt(dayNumberElement.textContent);
@@ -206,27 +250,10 @@ document.addEventListener('DOMContentLoaded', function() {
             saveDataToLocalStorage();
         });
         
-        // Settings panel toggle
-        const settingsToggle = document.getElementById('settings-toggle');
-        const settingsPanel = document.getElementById('settings-panel');
-        
-        settingsToggle.addEventListener('click', function() {
-            settingsPanel.classList.toggle('active');
-        });
-        
         // Close settings panel when clicking outside
         document.addEventListener('click', function(event) {
             if (!settingsPanel.contains(event.target) && event.target !== settingsToggle) {
                 settingsPanel.classList.remove('active');
-            }
-        });
-        
-        // Reset button
-        const resetButton = document.getElementById('reset-button');
-        resetButton.addEventListener('click', function() {
-            if (confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
-                localStorage.removeItem('100TimesChallenge');
-                location.reload();
             }
         });
     }
