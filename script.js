@@ -1,8 +1,39 @@
+// Register service worker for PWA
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+                console.log('Service Worker registered with scope:', registration.scope);
+            })
+            .catch(error => {
+                console.error('Service Worker registration failed:', error);
+            });
+    });
+}
+
 // Main app functionality
 document.addEventListener('DOMContentLoaded', function() {
     // Constants
-    const TOTAL_DAYS = 7;
+    const DAYS = 7;
     const SQUARES_PER_DAY = 100;
+    
+    // Check if running in standalone mode (added to home screen)
+    const isInStandaloneMode = () => 
+        (window.navigator.standalone) || // iOS
+        (window.matchMedia('(display-mode: standalone)').matches); // Android/Chrome
+    
+    // Add class to body if in standalone mode
+    if (isInStandaloneMode()) {
+        document.body.classList.add('standalone-mode');
+        
+        // Fix for iOS to hide the status bar
+        if (window.navigator.standalone) {
+            // Add empty div to push content down below status bar
+            const statusBarSpacer = document.createElement('div');
+            statusBarSpacer.classList.add('status-bar-spacer');
+            document.body.prepend(statusBarSpacer);
+        }
+    }
     
     // DOM Elements
     const countButton = document.getElementById('count-button');
@@ -67,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             // Initialize fresh data
             dayData = [];
-            for (let i = 0; i < TOTAL_DAYS; i++) {
+            for (let i = 0; i < DAYS; i++) {
                 dayData.push({
                     day: i + 1,
                     count: 0,
@@ -78,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Ensure we have the correct number of days
-        while (dayData.length < TOTAL_DAYS) {
+        while (dayData.length < DAYS) {
             dayData.push({
                 day: dayData.length + 1,
                 count: 0,

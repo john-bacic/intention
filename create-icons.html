@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate App Icons</title>
+    <style>
+        body { 
+            font-family: sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            margin: 10px 0;
+            background: #121212;
+        }
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>App Icon Generator</h1>
+    <p>Click buttons to generate and download icons:</p>
+    
+    <canvas id="canvas192" width="192" height="192"></canvas>
+    <br>
+    <button onclick="downloadIcon(192)">Download 192x192 Icon</button>
+    
+    <br><br>
+    
+    <canvas id="canvas512" width="512" height="512"></canvas>
+    <br>
+    <button onclick="downloadIcon(512)">Download 512x512 Icon</button>
+    
+    <script>
+        // Draw icon function
+        function drawIcon(size) {
+            const canvas = document.getElementById(`canvas${size}`);
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#121212';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Calculate dimensions
+            const padding = size * 0.15;
+            const fontSize = size * 0.3;
+            
+            // Draw circle
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size/2 - padding, 0, Math.PI * 2);
+            ctx.fillStyle = '#4CAF50';
+            ctx.fill();
+            
+            // Draw plus sign
+            const lineWidth = size * 0.08;
+            const plusSize = size * 0.35;
+            
+            ctx.fillStyle = 'white';
+            
+            // Horizontal line
+            ctx.fillRect(
+                size/2 - plusSize/2,
+                size/2 - lineWidth/2,
+                plusSize,
+                lineWidth
+            );
+            
+            // Vertical line
+            ctx.fillRect(
+                size/2 - lineWidth/2,
+                size/2 - plusSize/2,
+                lineWidth,
+                plusSize
+            );
+            
+            // Draw text
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('100', size/2, size - padding);
+        }
+        
+        // Download function
+        function downloadIcon(size) {
+            const canvas = document.getElementById(`canvas${size}`);
+            drawIcon(size);
+            
+            // Create download link
+            const link = document.createElement('a');
+            link.download = `icon-${size}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        // Draw initial icons
+        window.onload = function() {
+            drawIcon(192);
+            drawIcon(512);
+        };
+    </script>
+</body>
+</html>

@@ -5,17 +5,26 @@
     font-family: 'Inconsolata', monospace;
 }
 
-body, html {
+/* Full screen app styles */
+html {
     height: 100%;
     width: 100%;
     overflow: hidden;
 }
 
 body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     background-color: #121212;
     color: #e0e0e0;
+    font-family: 'Inconsolata', monospace;
+    position: fixed;
+    -webkit-overflow-scrolling: touch;
 }
 
 .container {
@@ -349,6 +358,33 @@ html, body {
 
 #count-button, .day, .square, .gear-icon, #reset-button {
     touch-action: manipulation;
+}
+
+/* Full-screen app mode styles */
+.standalone-mode {
+    /* Full height with iOS safe areas */
+    height: 100vh;
+    height: -webkit-fill-available;
+    overflow: hidden;
+}
+
+/* iOS status bar spacer */
+.status-bar-spacer {
+    height: env(safe-area-inset-top, 20px);
+    width: 100%;
+    background-color: #121212;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+}
+
+/* Adjust container for standalone mode */
+.standalone-mode .container {
+    padding-top: env(safe-area-inset-top, 20px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: 100vh;
+    height: -webkit-fill-available;
 }
 
 @media (max-width: 768px) {
