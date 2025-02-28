@@ -2,7 +2,7 @@
   "name": "100 Times Challenge",
   "short_name": "100 Times",
   "description": "Count to 100 over seven days",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#121212",
   "theme_color": "#121212",

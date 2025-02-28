@@ -1,13 +1,13 @@
 // Service Worker for 100 Times Challenge
 const CACHE_NAME = '100-times-v1';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/styles.css',
-  '/script.js',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
+  './',
+  './index.html',
+  './styles.css',
+  './script.js',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
   'https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700;900&display=swap'
 ];
 
