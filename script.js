@@ -197,8 +197,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (isCurrentDay) {
                 // Highlight current day
-                day.style.backgroundColor = '#4CAF50';
+                day.style.backgroundColor = '#E02B2B';
                 day.style.color = 'white';
+                day.style.textShadow = '1px 1px 2px #000000bb';
                 
                 // Show day label only for current day
                 if (dayLabel) {
@@ -206,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } else if (dayNumber < currentDay || isDayCompleted) {
                 // Past days
-                day.style.backgroundColor = '#888';
+                day.style.backgroundColor = '#600000';
                 day.style.color = 'white';
             }
         });

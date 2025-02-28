@@ -86,7 +86,7 @@ h1 {
 .day {
     width: 45px;
     min-height: 60px;
-    background-color: #333;
+    background-color: #1D1D1D;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -95,7 +95,7 @@ h1 {
     font-weight: bold;
     cursor: pointer;
     transition: background-color 0.3s;
-    color: #00000055;
+    color: #000000;
     position: relative;
     margin: 0 2px;
     -webkit-tap-highlight-color: transparent;
@@ -110,7 +110,7 @@ h1 {
 
 .day-label {
     font-size: 0.7em;
-    font-weight: normal;
+    font-weight: 900;
     position: absolute;
     top: 5px;
     color: rgba(255, 255, 255, 0.8);
@@ -133,7 +133,7 @@ h1 {
 }
 
 .day.active {
-    background-color: #4CAF50;
+    background-color: #EF9C9C;
     color: white;
     text-shadow: 1px 1px 2px #000;
     
@@ -254,7 +254,7 @@ h1 {
     width: 120px;
     height: 120px;
     border-radius: 50%;
-    background-color: #4CAF50;
+    background-color: #EF9C9C;
     font-size: 3.5em;
     font-weight: bold;
     border: none;
