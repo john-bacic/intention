@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let userMotivation = '';
     let dayData = [];
     let settings = { darkMode: false };
+    let isAnimating = false; // Move the isAnimating variable outside the function
     
     // Helper functions
     function generateMutedColor() {
@@ -74,6 +75,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Update the UI
         updateUI();
+        
+        // Precompute random positions for better performance
+        precomputeRandomPositions();
+        
+        // Register service worker for PWA support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(error => {
+                        console.log('ServiceWorker registration failed: ', error);
+                    });
+            });
+        }
     }
     
     function generateSquares() {
@@ -374,11 +391,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function handleCountClick() {
+        // Prevent multiple clicks during animation
+        if (isAnimating) return;
+        isAnimating = true;
+        
+        // Set a timeout to re-enable clicks after animation completes
+        setTimeout(() => {
+            isAnimating = false;
+        }, 800);  // Slightly longer than the animation duration
+        
         // Get current day data
         const currentDayData = dayData[currentDay - 1];
         
         // If day already completed, don't do anything
         if (currentDayData.completed) {
+            isAnimating = false;
             return;
         }
         
@@ -388,16 +415,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Increment count
         currentDayData.count++;
         
-        // Find a random available position in the grid
-        const availablePositions = getAvailablePositions();
-        if (availablePositions.length === 0) {
-            // This shouldn't happen, but just in case
-            return;
-        }
-        
-        // Pick a random position
-        const randomIndex = Math.floor(Math.random() * availablePositions.length);
-        const position = availablePositions[randomIndex];
+        // Get a random available position in the grid
+        const position = getNextRandomPosition();
         
         // Add this square to colored squares
         const squareData = { 
@@ -458,10 +477,41 @@ document.addEventListener('DOMContentLoaded', function() {
         return availablePositions;
     }
     
+    // Function to precompute random positions for better performance
+    let precomputedPositions = [];
+    
+    function precomputeRandomPositions() {
+        precomputedPositions = [];
+        for (let i = 0; i < 100; i++) {
+            const availablePositions = getAvailablePositions();
+            if (availablePositions.length === 0) break;
+            
+            const randomIndex = Math.floor(Math.random() * availablePositions.length);
+            const position = availablePositions[randomIndex];
+            precomputedPositions.push(position);
+        }
+    }
+    
+    function getNextRandomPosition() {
+        if (precomputedPositions.length === 0) {
+            precomputeRandomPositions();
+        }
+        
+        if (precomputedPositions.length === 0) {
+            // Fallback if no positions available
+            return 0;
+        }
+        
+        return precomputedPositions.shift();
+    }
+    
     function colorSquareDirectly(position, number, color) {
         const squares = document.querySelectorAll('.square');
         if (position < squares.length) {
             const square = squares[position];
+            
+            // Use GPU acceleration for animations
+            square.style.willChange = 'transform, opacity';
             
             // Set the initial styles for animation
             square.style.transform = 'scale(0.01)';
@@ -486,6 +536,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 setTimeout(() => {
                     square.style.transform = 'scale(1)';
+                    // Clean up will-change to free resources when animation is done
+                    setTimeout(() => {
+                        square.style.willChange = 'auto';
+                    }, 200);
                 }, 100);
                 
             }, 300);
@@ -493,7 +547,52 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function showCongratulations() {
-        alert('Congratulations! You have completed the 100 Times Challenge for all 7 days!');
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.classList.add('overlay');
+        
+        // Create congrats message
+        const congratsContainer = document.createElement('div');
+        congratsContainer.classList.add('congrats-container');
+        
+        const congratsHeading = document.createElement('h2');
+        congratsHeading.textContent = 'Congratulations!';
+        
+        const congratsMessage = document.createElement('p');
+        congratsMessage.textContent = 'You have successfully completed the 100 Times Challenge for all 7 days!';
+        
+        // Create a confetti effect
+        const confettiContainer = document.createElement('div');
+        confettiContainer.classList.add('confetti-container');
+        
+        // Add 50 confetti pieces
+        for (let i = 0; i < 50; i++) {
+            const confetti = document.createElement('div');
+            confetti.classList.add('confetti');
+            confetti.style.left = `${Math.random() * 100}%`;
+            confetti.style.animationDelay = `${Math.random() * 3}s`;
+            confetti.style.backgroundColor = generateMutedColor();
+            confettiContainer.appendChild(confetti);
+        }
+        
+        // Create reset button
+        const resetButton = document.createElement('button');
+        resetButton.textContent = 'Start New Challenge';
+        resetButton.classList.add('reset-button');
+        resetButton.addEventListener('click', () => {
+            // Reset challenge data
+            localStorage.removeItem(STORAGE_KEY);
+            location.reload();
+        });
+        
+        // Append elements
+        congratsContainer.appendChild(congratsHeading);
+        congratsContainer.appendChild(congratsMessage);
+        congratsContainer.appendChild(resetButton);
+        
+        overlay.appendChild(confettiContainer);
+        overlay.appendChild(congratsContainer);
+        document.body.appendChild(overlay);
     }
     
     function moveToNextDay() {
