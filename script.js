@@ -715,32 +715,38 @@ document.addEventListener('DOMContentLoaded', function() {
         // Mark as processing
         processingQueue = true;
         
-        // Get the next click from the queue
-        const clickData = clickQueue.shift();
-        const { number, color, dayData } = clickData;
+        // Process multiple clicks at once in case of very rapid tapping
+        const clicksToProcess = Math.min(clickQueue.length, 3); // Process up to 3 clicks at once
         
-        // Handle differently based on display mode
-        if (settings.displayMode === 'big') {
-            // Big mode - direct and simple approach
-            handleBigModeClick(number, color);
+        for (let i = 0; i < clicksToProcess; i++) {
+            // Get the next click from the queue
+            const clickData = clickQueue.shift();
             
-            // Check completion after processing the click
+            if (!clickData) break; // Safety check
+            
+            const { number, color, dayData } = clickData;
+            
+            // Handle differently based on display mode
+            if (settings.displayMode === 'big') {
+                // Big mode - direct and simple approach
+                handleBigModeClick(number, color);
+            } else {
+                // Grid mode - we'll process regardless of animation status
+                // Just set the flag to prevent direct clicks outside the queue
+                isAnimating = true;
+                
+                // Handle grid mode click
+                handleGridModeClick(dayData, color);
+            }
+            
+            // Check completion after processing each click
             checkCompletionAndSave(dayData);
-            
-            // Process next item in queue with minimal delay
-            setTimeout(processClickQueue, 50);
-        } else {
-            // Grid mode - we'll process regardless of animation status
-            // Just set the flag to prevent direct clicks outside the queue
-            isAnimating = true;
-            
-            // Handle grid mode click
-            handleGridModeClick(dayData, color);
-            
-            // Check completion after processing the click
-            checkCompletionAndSave(dayData);
-            
-            // processClickQueue will be called again when animation completes in colorSquareInGrid
+        }
+        
+        // If in big mode or if we still have clicks in the queue, continue processing immediately
+        if (settings.displayMode === 'big' || clickQueue.length > 0) {
+            // Use requestAnimationFrame for better performance than setTimeout
+            requestAnimationFrame(processClickQueue);
         }
     }
     
@@ -831,10 +837,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (position < squares.length) {
             const square = squares[position];
             
-            // Use GPU acceleration for animations
-            square.style.willChange = 'transform, opacity';
-            
-            // Set the color and number immediately
+            // Set the color and number immediately without waiting for animation
             square.style.backgroundColor = color;
             square.textContent = number;
             square.classList.add('colored');
@@ -842,17 +845,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // Apply animation directly with CSS class instead of inline styles
             square.classList.add('square-animate');
             
-            // Remove animation class after animation completes to allow it to be re-applied
+            // Reset animation state immediately so next tap can be processed
+            isAnimating = false;
+            
+            // Allow the next click in queue to be processed immediately
+            setTimeout(processClickQueue, 0);
+            
+            // Remove animation class after animation completes in background
             setTimeout(() => {
                 square.classList.remove('square-animate');
-                square.style.willChange = 'auto';
-                
-                // Reset animation state
-                isAnimating = false;
-                
-                // Continue processing the queue after animation completes
-                setTimeout(processClickQueue, 10);
-            }, 300); // Reduced from 600ms to 300ms for faster animations
+            }, 200); // Even shorter animation cleanup time
         }
     }
     
