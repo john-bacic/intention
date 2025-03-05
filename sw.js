@@ -4,6 +4,7 @@ const ASSETS = [
   './',
   './index.html',
   './styles.css',
+  './style.css',
   './script.js',
   './manifest.json',
   './icon-192.png',
@@ -13,21 +14,32 @@ const ASSETS = [
 
 // Install event - cache assets
 self.addEventListener('install', (event) => {
+  // Skip waiting to activate immediately
+  self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
+        console.log('Caching app assets');
         return cache.addAll(ASSETS);
+      })
+      .catch((error) => {
+        console.error('Error caching assets:', error);
       })
   );
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
+  // Claim clients so the service worker is used immediately
+  event.waitUntil(clients.claim());
+  
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -61,9 +73,29 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME)
               .then((cache) => {
                 cache.put(event.request, responseToCache);
+              })
+              .catch(error => {
+                console.error('Error caching response:', error);
               });
             
             return response;
+          })
+          .catch(error => {
+            console.error('Fetch error:', error);
+            
+            // If the request is for an HTML page, return the offline page
+            if (event.request.headers.get('accept').includes('text/html')) {
+              return caches.match('./index.html');
+            }
+            
+            // Otherwise just log the error and return a basic error response
+            return new Response('Network error occurred', {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: new Headers({
+                'Content-Type': 'text/plain'
+              })
+            });
           });
       })
   );

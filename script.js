@@ -1,12 +1,37 @@
 // Register service worker for PWA
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
+        // Use a timeout to avoid hanging if service worker registration fails
+        const timeoutId = setTimeout(() => {
+            console.warn('Service Worker registration timeout - continuing without service worker');
+        }, 3000);
+
         navigator.serviceWorker.register('./sw.js')
             .then(registration => {
+                clearTimeout(timeoutId);
                 console.log('Service Worker registered with scope:', registration.scope);
+                
+                // Check if there's a waiting service worker and update UI
+                if (registration.waiting) {
+                    console.log('New service worker waiting to activate');
+                }
+                
+                // Handle service worker updates
+                registration.onupdatefound = () => {
+                    const installingWorker = registration.installing;
+                    if (installingWorker) {
+                        installingWorker.onstatechange = () => {
+                            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('New service worker installed - reload for updates');
+                            }
+                        };
+                    }
+                };
             })
             .catch(error => {
+                clearTimeout(timeoutId);
                 console.error('Service Worker registration failed:', error);
+                // Continue app functionality even if service worker fails
             });
     });
 }
@@ -93,19 +118,6 @@ document.addEventListener('DOMContentLoaded', function() {
             squaresGrid.style.display = 'grid';
             bigNumberDisplay.style.display = 'none';
         }
-        
-        // Register service worker for PWA support
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('service-worker.js')
-                    .then(registration => {
-                        console.log('ServiceWorker registration successful');
-                    })
-                    .catch(error => {
-                        console.log('ServiceWorker registration failed: ', error);
-                    });
-            });
-        }
     }
     
     function generateSquares() {
@@ -150,123 +162,159 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function loadProgress() {
-        const savedData = localStorage.getItem(STORAGE_KEY);
-        
-        if (savedData) {
-            try {
-                const parsed = JSON.parse(savedData);
-                dayData = parsed.dayData || dayData;
-                currentDay = parsed.currentDay || 1;
-                userMotivation = parsed.userMotivation || '';
-                settings = parsed.settings || { darkMode: false, displayMode: 'random' };
-                
-                // Ensure all day data has necessary properties
-                dayData.forEach(day => {
-                    // Handle case where no coloredSquares property exists
-                    if (!day.coloredSquares) {
-                        day.coloredSquares = [];
+        try {
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            
+            if (savedData) {
+                try {
+                    const parsed = JSON.parse(savedData);
+                    dayData = parsed.dayData || [];
+                    currentDay = parsed.currentDay || 1;
+                    userMotivation = parsed.userMotivation || '';
+                    settings = parsed.settings || { darkMode: false, displayMode: 'random' };
+                    
+                    // Ensure we have valid dayData
+                    if (!Array.isArray(dayData) || dayData.length === 0) {
+                        console.warn('Invalid dayData, initializing fresh data');
+                        initializeData();
                     }
                     
-                    // Add position to old data if missing
-                    day.coloredSquares.forEach((square, index) => {
-                        if (square.position === undefined) {
-                            square.position = index; // Just use sequential positions for old data
+                    // Ensure all day data has necessary properties
+                    dayData.forEach(day => {
+                        // Handle case where no coloredSquares property exists
+                        if (!day.coloredSquares) {
+                            day.coloredSquares = [];
+                        }
+                        
+                        // Add position to old data if missing
+                        day.coloredSquares.forEach((square, index) => {
+                            if (square.position === undefined) {
+                                square.position = index; // Just use sequential positions for old data
+                            }
+                        });
+                        
+                        // Verify data consistency
+                        if (day.coloredSquares.length > 0) {
+                            // Sort by number
+                            day.coloredSquares.sort((a, b) => a.number - b.number);
+                            
+                            // Check for missing numbers
+                            const numbers = day.coloredSquares.map(square => square.number);
+                            const maxNumber = Math.max(...numbers, 0);
+                            const expectedNumbers = Array.from({length: maxNumber}, (_, i) => i + 1);
+                            const missingNumbers = expectedNumbers.filter(num => !numbers.includes(num));
+                            
+                            // If missing numbers detected, fix the data
+                            if (missingNumbers.length > 0) {
+                                console.warn(`Detected ${missingNumbers.length} missing numbers in day ${day.day} data, fixing...`);
+                                for (const missingNum of missingNumbers) {
+                                    // Find an unused position
+                                    let availablePositions = [];
+                                    for (let i = 0; i < 100; i++) {
+                                        if (!day.coloredSquares.some(square => square.position === i)) {
+                                            availablePositions.push(i);
+                                        }
+                                    }
+                                    
+                                    const position = availablePositions.length > 0 ? 
+                                        availablePositions[0] : 
+                                        missingNum - 1; // Fallback to sequential position
+                                    
+                                    // Add the missing square
+                                    day.coloredSquares.push({
+                                        number: missingNum,
+                                        color: generateMutedColor(),
+                                        position: position
+                                    });
+                                }
+                                
+                                // Re-sort after adding missing numbers
+                                day.coloredSquares.sort((a, b) => a.number - b.number);
+                            }
+                            
+                            // Make sure count reflects the highest number
+                            if (day.coloredSquares.length > 0) {
+                                const highestNumber = day.coloredSquares[day.coloredSquares.length - 1].number;
+                                if (day.count < highestNumber) {
+                                    day.count = highestNumber;
+                                }
+                            }
                         }
                     });
                     
-                    // Verify data consistency
-                    if (day.coloredSquares.length > 0) {
-                        // Sort by number
-                        day.coloredSquares.sort((a, b) => a.number - b.number);
-                        
-                        // Check for missing numbers
-                        const numbers = day.coloredSquares.map(square => square.number);
-                        const maxNumber = Math.max(...numbers, 0);
-                        const expectedNumbers = Array.from({length: maxNumber}, (_, i) => i + 1);
-                        const missingNumbers = expectedNumbers.filter(num => !numbers.includes(num));
-                        
-                        // If missing numbers detected, fix the data
-                        if (missingNumbers.length > 0) {
-                            for (const missingNum of missingNumbers) {
-                                // Find an unused position
-                                let availablePositions = [];
-                                for (let i = 0; i < 100; i++) {
-                                    if (!day.coloredSquares.some(square => square.position === i)) {
-                                        availablePositions.push(i);
-                                    }
-                                }
-                                
-                                const position = availablePositions.length > 0 ? 
-                                    availablePositions[0] : 
-                                    missingNum - 1; // Fallback to sequential position
-                                    
-                                day.coloredSquares.push({
-                                    number: missingNum,
-                                    color: generateMutedColor(),
-                                    position: position
-                                });
-                            }
-                            
-                            // Re-sort after adding missing numbers
-                            day.coloredSquares.sort((a, b) => a.number - b.number);
-                        }
-                        
-                        // Make sure count reflects the highest number
-                        if (day.coloredSquares.length > 0) {
-                            const highestNumber = day.coloredSquares[day.coloredSquares.length - 1].number;
-                            if (day.count < highestNumber) {
-                                day.count = highestNumber;
-                            }
-                        }
+                    // Verify current day is valid
+                    if (currentDay < 1 || currentDay > 7) {
+                        console.warn('Invalid currentDay, resetting to 1');
+                        currentDay = 1;
                     }
-                });
-                
-                applyDarkMode();
-            } catch (e) {
-                console.error('Error parsing saved data:', e);
-                // Initialize with defaults if there's an error
+                    
+                } catch (parseError) {
+                    console.error('Error parsing saved data:', parseError);
+                    initializeData();
+                }
+            } else {
+                // No saved data, initialize fresh
+                console.log('No saved data found, initializing fresh data');
                 initializeData();
             }
-        } else {
-            // No saved data, use defaults
-            initializeData();
-        }
-        
-        // Ensure we have the correct number of days
-        while (dayData.length < DAYS) {
-            dayData.push({
-                day: dayData.length + 1,
-                count: 0,
-                coloredSquares: [],
-                completed: false
+            
+            // Ensure we have the correct number of days
+            while (dayData.length < DAYS) {
+                dayData.push({
+                    day: dayData.length + 1,
+                    count: 0,
+                    coloredSquares: [],
+                    completed: false
+                });
+            }
+            
+            // Initialize lastProcessedNumber based on current day's data
+            if (dayData && dayData[currentDay - 1]) {
+                const currentDayData = dayData[currentDay - 1];
+                if (currentDayData.coloredSquares && currentDayData.coloredSquares.length > 0) {
+                    const numbers = currentDayData.coloredSquares.map(square => square.number);
+                    lastProcessedNumber = Math.max(...numbers, 0);
+                } else {
+                    lastProcessedNumber = 0;
+                }
+            }
+            
+            // Update the UI after loading data
+            updateUI();
+            
+            // If it's dark mode, apply it
+            if (settings.darkMode) {
+                applyDarkMode();
+            }
+            
+            // Update the display mode (random/sequential/big)
+            const modeRadios = document.querySelectorAll('input[name="display-mode"]');
+            modeRadios.forEach(radio => {
+                if (radio.value === settings.displayMode) {
+                    radio.checked = true;
+                }
             });
-        }
-        
-        // Initialize lastProcessedNumber based on current day's data
-        if (dayData && dayData[currentDay - 1]) {
-            const currentDayData = dayData[currentDay - 1];
-            if (currentDayData.coloredSquares && currentDayData.coloredSquares.length > 0) {
-                const numbers = currentDayData.coloredSquares.map(square => square.number);
-                lastProcessedNumber = Math.max(...numbers, 0);
-            } else {
-                lastProcessedNumber = 0;
+            
+            // Update the user sentence display with quotes
+            if (userSentence && userMotivation && userMotivation.trim() !== '') {
+                userSentence.value = `"${userMotivation}"`;
             }
+            
+        } catch (error) {
+            // Catch any other errors that might occur
+            console.error('Error in loadProgress:', error);
+            
+            // Recover from error by initializing fresh data
+            console.log('Recovering from error by initializing fresh data');
+            dayData = [];
+            initializeData();
+            currentDay = 1;
+            userMotivation = '';
+            settings = { darkMode: false, displayMode: 'random' };
+            
+            // Still update the UI to avoid hanging
+            updateUI();
         }
-        
-        updateUI();
-        
-        // If it's dark mode, apply it
-        if (settings.darkMode) {
-            applyDarkMode();
-        }
-        
-        // Update the UI mode (random/sequential/big)
-        const modeRadios = document.querySelectorAll('input[name="display-mode"]');
-        modeRadios.forEach(radio => {
-            if (radio.value === settings.displayMode) {
-                radio.checked = true;
-            }
-        });
     }
     
     function saveDataToLocalStorage() {
@@ -282,6 +330,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateUI() {
+        // Get current day's data
+        const currentDayData = dayData[currentDay - 1];
+        
         // Update days
         days.forEach((day, index) => {
             const dayNumber = index + 1;
@@ -317,11 +368,21 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Update user sentence with quotation marks
+        // Update user sentence with a single set of quotation marks
         if (userSentence && userMotivation) {
-            // Only add quotes if there's actual content
             if (userMotivation.trim() !== '') {
-                userSentence.value = `"${userMotivation}"`;
+                // First strip any existing quotes
+                let cleanValue = userMotivation;
+                while (cleanValue.startsWith('"') || cleanValue.endsWith('"')) {
+                    cleanValue = cleanValue.replace(/^"/, '').replace(/"$/, '');
+                }
+                
+                // Now add just one set of quotes
+                if (cleanValue.trim() !== '') {
+                    userSentence.value = `"${cleanValue}"`;
+                } else {
+                    userSentence.value = '';
+                }
             } else {
                 userSentence.value = userMotivation;
             }
@@ -335,19 +396,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const bigNumberDisplay = document.querySelector('.big-number-display');
         
         if (settings.displayMode === 'big') {
-            // Hide grid, show big number
+            // Hide grid completely when in big mode
             squaresGrid.style.display = 'none';
             bigNumberDisplay.style.display = 'flex';
             
             // Show the current count in big display
             const currentDayData = dayData[currentDay - 1];
             if (currentDayData.count > 0) {
-                // Only update the number if it's not already set
-                if (bigNumberDisplay.textContent !== currentDayData.count.toString()) {
-                    bigNumberDisplay.textContent = currentDayData.count;
-                }
-                
-                // Set the color to match the last colored square
+                bigNumberDisplay.textContent = currentDayData.count;
                 if (currentDayData.coloredSquares.length > 0) {
                     const lastColor = currentDayData.coloredSquares[currentDayData.coloredSquares.length - 1].color;
                     bigNumberDisplay.style.color = lastColor;
@@ -357,7 +413,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 bigNumberDisplay.style.color = '#888';
             }
         } else {
-            // Hide big number, show grid
+            // Show grid for other modes
             squaresGrid.style.display = 'grid';
             bigNumberDisplay.style.display = 'none';
             // Regenerate the grid with current data
@@ -378,7 +434,7 @@ document.addEventListener('DOMContentLoaded', function() {
             squaresGrid.appendChild(square);
         }
         
-        // Color the squares that have already been marked (without animation)
+        // Color the squares that have already been marked (with staggered animation)
         const currentDayData = dayData[currentDay - 1];
         const squares = document.querySelectorAll('.square');
         
@@ -418,19 +474,36 @@ document.addEventListener('DOMContentLoaded', function() {
         // Re-sort after adding missing numbers
         sortedSquares.sort((a, b) => a.number - b.number);
         
-        // Apply the colored squares
-        sortedSquares.forEach(squareData => {
+        // Apply the colored squares with staggered animation
+        sortedSquares.forEach((squareData, index) => {
             const position = squareData.position;
             if (position < squares.length) {
                 const square = squares[position];
-                square.classList.add('colored');
+                
+                // Set initial properties
                 square.style.backgroundColor = squareData.color;
                 square.textContent = squareData.number;
+                square.classList.add('colored');
                 
-                // No animation or transition for already colored squares
-                square.style.transform = 'scale(1)';
-                square.style.opacity = '1';
-                square.style.transition = 'none';
+                // Set initial state for animation
+                square.style.opacity = '0';
+                square.style.transform = 'scale(0)';
+                
+                // Apply staggered animation with a small delay based on index
+                setTimeout(() => {
+                    // Force reflow to ensure animation plays
+                    void square.offsetWidth;
+                    
+                    // Use custom animation with more dramatic effect
+                    square.style.transition = 'transform 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49), opacity 0.4s ease';
+                    square.style.transform = 'scale(1.1)';
+                    square.style.opacity = '1';
+                    
+                    // Remove the scaling after the animation completes
+                    setTimeout(() => {
+                        square.style.transform = 'scale(1)';
+                    }, 350);
+                }, 20 * index); // 20ms delay between each square
             }
         });
         
@@ -466,7 +539,7 @@ document.addEventListener('DOMContentLoaded', function() {
             handleCountClick();
         });
         
-        // Settings panel toggle - adding touchstart for better mobile response
+        // Settings panel toggle
         const settingsToggle = document.getElementById('settings-toggle');
         const settingsPanel = document.getElementById('settings-panel');
         
@@ -479,7 +552,14 @@ document.addEventListener('DOMContentLoaded', function() {
             settingsPanel.classList.toggle('active');
         });
         
-        // Reset button - adding touchstart for better mobile response
+        // Close settings panel when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!settingsPanel.contains(event.target) && event.target !== settingsToggle) {
+                settingsPanel.classList.remove('active');
+            }
+        });
+        
+        // Reset button
         const resetButton = document.getElementById('reset-button');
         
         resetButton.addEventListener('click', function() {
@@ -536,38 +616,38 @@ document.addEventListener('DOMContentLoaded', function() {
         // Save user sentence
         if (userSentence) {
             userSentence.addEventListener('input', function() {
-                // Remove quotes when saving to the userMotivation variable
+                // Store the raw input value without quotes
                 let inputValue = this.value;
                 
-                // Strip quotes if they exist
+                // Strip existing quotes to get clean content
                 if (inputValue.startsWith('"') && inputValue.endsWith('"')) {
                     userMotivation = inputValue.substring(1, inputValue.length - 1);
                 } else {
                     userMotivation = inputValue;
                 }
                 
+                // Don't add quotes during typing to avoid weird cursor positioning
+                // We'll add them on blur
+                
                 saveProgress();
             });
             
-            // When the input field loses focus, ensure quotes are added
+            // When the input field loses focus, ensure quotes are added properly
             userSentence.addEventListener('blur', function() {
                 if (this.value.trim() !== '') {
-                    // If the value doesn't already have quotes, add them
-                    if (!this.value.startsWith('"') || !this.value.endsWith('"')) {
-                        // Remove any existing quotes first
-                        let cleanValue = this.value.replace(/^"|"$/g, '');
+                    // First strip any existing quotes
+                    let cleanValue = this.value;
+                    while (cleanValue.startsWith('"') || cleanValue.endsWith('"')) {
+                        cleanValue = cleanValue.replace(/^"/, '').replace(/"$/, '');
+                    }
+                    
+                    // Now add just one set of quotes
+                    if (cleanValue.trim() !== '') {
                         this.value = `"${cleanValue}"`;
                     }
                 }
             });
         }
-        
-        // Close settings panel when clicking outside
-        document.addEventListener('click', function(event) {
-            if (!settingsPanel.contains(event.target) && event.target !== settingsToggle) {
-                settingsPanel.classList.remove('active');
-            }
-        });
         
         // Display mode radio buttons
         const displayModeRadios = document.querySelectorAll('input[name="display-mode"]');
@@ -694,8 +774,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Get current day data
         const currentDayData = dayData[currentDay - 1];
         
-        // If day already completed, don't do anything
-        if (currentDayData.completed) {
+        // If day already completed or already at 100, don't do anything
+        if (currentDayData.completed || currentDayData.count >= 100) {
             return;
         }
         
@@ -713,10 +793,39 @@ document.addEventListener('DOMContentLoaded', function() {
             processClickQueue();
         }
         
-        // Apply a small scale animation to the button (for all modes)
-        countButton.classList.add('button-pressed');
+        // Apply a more pronounced scale-down animation to simulate a button press
+        // First clear any existing animations
+        countButton.classList.remove('pulse');
+        
+        // Get the plus icon SVG for additional animation
+        const plusIcon = countButton.querySelector('.plus-icon');
+        
+        // Apply scale down effect to the button
+        countButton.style.transform = 'scale(0.8)';
+        countButton.style.transition = 'transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        
+        // Also scale the icon for additional effect
+        if (plusIcon) {
+            plusIcon.style.transform = 'scale(0.8) rotate(-10deg)';
+            plusIcon.style.transition = 'transform 0.15s ease';
+        }
+        
+        // Return to normal after a short delay
         setTimeout(() => {
-            countButton.classList.remove('button-pressed');
+            countButton.style.transform = 'scale(1.1)';
+            if (plusIcon) {
+                plusIcon.style.transform = 'scale(1.1) rotate(5deg)';
+            }
+            
+            // Final return to normal size
+            setTimeout(() => {
+                countButton.style.transform = 'scale(1)';
+                countButton.style.transition = '';
+                if (plusIcon) {
+                    plusIcon.style.transform = 'scale(1) rotate(0)';
+                    plusIcon.style.transition = '';
+                }
+            }, 150);
         }, 150);
     }
     
@@ -741,6 +850,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const { color, dayData } = clickData;
         
+        // Check if we've already reached 100 - enforce the limit
+        if (dayData.count >= 100) {
+            // Skip this click and process the next one
+            processingQueue = false;
+            if (clickQueue.length > 0) {
+                setTimeout(processClickQueue, 10);
+            }
+            return;
+        }
+        
         // Calculate the next sequential number
         // This ensures we never skip numbers, even with rapid clicks
         const existingNumbers = dayData.coloredSquares.map(square => square.number);
@@ -751,11 +870,11 @@ document.addEventListener('DOMContentLoaded', function() {
             lastProcessedNumber++;
         }
         
-        // Use the calculated sequential number
-        const nextNumber = lastProcessedNumber;
+        // Use the calculated sequential number, but cap at 100
+        const nextNumber = Math.min(lastProcessedNumber, 100);
         
-        // Update the day data count
-        dayData.count = Math.max(dayData.count, nextNumber);
+        // Update the day data count, capped at 100
+        dayData.count = Math.min(Math.max(dayData.count, nextNumber), 100);
         
         // Handle differently based on display mode
         if (settings.displayMode === 'big') {
@@ -769,11 +888,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check completion after processing the click
         checkCompletionAndSave(dayData);
         
-        // Continue processing queue immediately for ALL modes
-        // This is key - we don't wait for animations to complete
+        // Continue processing queue with a slight delay to allow animations to be visible
         if (clickQueue.length > 0) {
-            // Use setTimeout with 0 delay for better behavior with rapid clicks
-            setTimeout(processClickQueue, 0);
+            // Use setTimeout with a small delay to make animations visible even with rapid clicks
+            setTimeout(processClickQueue, 150);
         } else {
             processingQueue = false;
         }
@@ -792,29 +910,48 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update the button color to match the latest square - match Big mode behavior
         countButton.style.backgroundColor = color;
         
-        // Always color the square immediately - NO ANIMATIONS at all
+        // Add a pop-in animation to the square
         const squares = document.querySelectorAll('.square');
         if (position < squares.length) {
             const square = squares[position];
             
-            // Set the color and number immediately - EXACTLY LIKE BIG MODE (no animations)
+            // First set initial state for animation
             square.style.backgroundColor = color;
             square.textContent = number;
             square.classList.add('colored');
+            
+            // Set initial state for stronger pop-in animation
+            square.style.opacity = '0';
+            square.style.transform = 'scale(0)';
+            
+            // Force reflow to ensure animation plays
+            void square.offsetWidth;
+            
+            // Use custom animation with more dramatic effect
+            square.style.transition = 'transform 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49), opacity 0.4s ease';
+            square.style.transform = 'scale(1.1)';
+            square.style.opacity = '1';
+            
+            // Remove the scaling after the animation completes
+            setTimeout(() => {
+                square.style.transform = 'scale(1)';
+            }, 350);
         }
         
-        // Add to colored squares list - this ensures data consistency
+        // Get current day data and add the square
         const squareData = { 
-            number: number, 
+            position: position,
             color: color,
-            position: position
+            number: number
         };
         
+        // Add the square data
         currentDayData.coloredSquares.push(squareData);
         
-        // Update UI with minimal delay - this refreshes the progress bar
-        // But don't let this delay the next number
-        requestAnimationFrame(updateUI);
+        // Update the count if needed
+        if (currentDayData.count < number) {
+            currentDayData.count = number;
+        }
     }
     
     function getAvailablePositions() {
@@ -862,6 +999,30 @@ document.addEventListener('DOMContentLoaded', function() {
         const congratsMessage = document.createElement('p');
         congratsMessage.textContent = 'You have successfully completed the 100 Times Challenge for all 7 days!';
         
+        // Add the user's motivation text if available
+        if (userMotivation && userMotivation.trim() !== '') {
+            const motivationMessage = document.createElement('p');
+            motivationMessage.classList.add('motivation-highlight');
+            
+            // Format the motivation text with proper quotes
+            const formattedMotivation = `"${userMotivation.replace(/^"|"$/g, '')}"`;
+            motivationMessage.textContent = `You did it! ${formattedMotivation}`;
+            
+            // Add a pop-in animation to the motivation text
+            motivationMessage.style.opacity = '0';
+            motivationMessage.style.transform = 'scale(0.5)';
+            
+            // Append motivation message
+            congratsContainer.appendChild(motivationMessage);
+            
+            // Trigger animation after a slight delay
+            setTimeout(() => {
+                motivationMessage.style.transition = 'all 0.6s cubic-bezier(0.17, 0.89, 0.32, 1.49)';
+                motivationMessage.style.opacity = '1';
+                motivationMessage.style.transform = 'scale(1)';
+            }, 300);
+        }
+        
         // Create a confetti effect
         const confettiContainer = document.createElement('div');
         confettiContainer.classList.add('confetti-container');
@@ -896,6 +1057,99 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(overlay);
     }
     
+    function showDayCompletionMessage() {
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.classList.add('overlay');
+        overlay.style.zIndex = '1000';
+        
+        // Create congrats message
+        const congratsContainer = document.createElement('div');
+        congratsContainer.classList.add('congrats-container');
+        congratsContainer.classList.add('day-completion');
+        
+        const congratsHeading = document.createElement('h2');
+        congratsHeading.textContent = `Day ${currentDay} Complete!`;
+        
+        const congratsMessage = document.createElement('p');
+        congratsMessage.textContent = 'You have reached 100 times for today!';
+        
+        // Add the user's motivation text if available
+        if (userMotivation && userMotivation.trim() !== '') {
+            const motivationMessage = document.createElement('p');
+            motivationMessage.classList.add('motivation-highlight');
+            
+            // Format the motivation text with proper quotes
+            const formattedMotivation = `"${userMotivation.replace(/^"|"$/g, '')}"`;
+            motivationMessage.textContent = formattedMotivation;
+            
+            // Add a pop-in animation to the motivation text
+            motivationMessage.style.opacity = '0';
+            motivationMessage.style.transform = 'scale(0.5)';
+            
+            // Append motivation message
+            congratsContainer.appendChild(motivationMessage);
+            
+            // Trigger animation after a slight delay
+            setTimeout(() => {
+                motivationMessage.style.transition = 'all 0.6s cubic-bezier(0.17, 0.89, 0.32, 1.49)';
+                motivationMessage.style.opacity = '1';
+                motivationMessage.style.transform = 'scale(1)';
+            }, 300);
+        }
+        
+        // Create a mini confetti effect
+        const confettiContainer = document.createElement('div');
+        confettiContainer.classList.add('confetti-container');
+        
+        // Add 30 confetti pieces (fewer than final completion)
+        for (let i = 0; i < 30; i++) {
+            const confetti = document.createElement('div');
+            confetti.classList.add('confetti');
+            confetti.style.left = `${Math.random() * 100}%`;
+            confetti.style.animationDelay = `${Math.random() * 2}s`;
+            confetti.style.backgroundColor = generateMutedColor();
+            confettiContainer.appendChild(confetti);
+        }
+        
+        // Create continue button
+        const continueButton = document.createElement('button');
+        continueButton.textContent = 'Continue to Day ' + (currentDay + 1);
+        continueButton.classList.add('continue-button');
+        
+        // Check if we're on the last day
+        if (currentDay >= 7) {
+            continueButton.textContent = 'Continue';
+        }
+        
+        continueButton.addEventListener('click', () => {
+            // Remove the overlay
+            document.body.removeChild(overlay);
+            // Then move to the next day
+            moveToNextDay();
+            // Update UI to reflect the new day
+            updateUI();
+        });
+        
+        // Append elements
+        congratsContainer.appendChild(congratsHeading);
+        congratsContainer.appendChild(congratsMessage);
+        congratsContainer.appendChild(continueButton);
+        
+        overlay.appendChild(confettiContainer);
+        overlay.appendChild(congratsContainer);
+        document.body.appendChild(overlay);
+        
+        // Auto-dismiss after 5 seconds if user doesn't click continue
+        setTimeout(() => {
+            if (document.body.contains(overlay)) {
+                document.body.removeChild(overlay);
+                moveToNextDay();
+                updateUI();
+            }
+        }, 5000);
+    }
+    
     function moveToNextDay() {
         for (let i = 0; i < dayData.length; i++) {
             if (!dayData[i].completed) {
@@ -906,8 +1160,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function saveProgress() {
-        // Update user motivation before saving
-        userMotivation = userSentence.value;
+        // Already handled via the input event listener
+        // No need to update userMotivation here to avoid conflicts
         
         // Ensure all data is properly ordered and consistent before saving
         dayData.forEach(day => {
@@ -935,30 +1189,28 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function loadProgress() {
-        const savedData = localStorage.getItem(STORAGE_KEY);
-        if (savedData) {
-            const data = JSON.parse(savedData);
-            currentDay = data.currentDay || 1;
-            userMotivation = data.userMotivation || '';
-            dayData = data.dayData || generateInitialDayData();
-            settings = data.settings || { darkMode: false, displayMode: 'random' };
+    function checkCompletionAndSave(currentDayData) {
+        // Check if we reached 100 for this day, mark as completed if so
+        if (currentDayData.count >= 100) {
+            // Only show completion message if this day wasn't already completed
+            const wasAlreadyCompleted = currentDayData.completed;
+            currentDayData.completed = true;
             
-            // Apply dark mode if saved
-            if (settings.darkMode) {
-                document.body.classList.add('dark-mode');
-                if (darkModeToggle) darkModeToggle.checked = true;
-            }
+            // Check if all 7 days are completed
+            const allDaysCompleted = dayData.every(day => day.completed);
             
-            // Update the user sentence display with quotes
-            if (userSentence && userMotivation && userMotivation.trim() !== '') {
-                userSentence.value = `"${userMotivation}"`;
+            if (allDaysCompleted) {
+                // Show the final congratulations if all days are done
+                showCongratulations();
+            } else if (!wasAlreadyCompleted) {
+                // Show day completion message and move to next day
+                // only if we just completed this day now
+                showDayCompletionMessage();
             }
-        } else {
-            // Initialize with default data
-            dayData = generateInitialDayData();
-            saveProgress();
         }
+        
+        // Save progress to local storage
+        saveProgress();
     }
     
     // Completely rewritten function for Big mode
@@ -969,14 +1221,61 @@ document.addEventListener('DOMContentLoaded', function() {
         // Get the big number display
         const bigNumberDisplay = document.querySelector('.big-number-display');
         
-        // Update the number and color
-        bigNumberDisplay.textContent = number;
-        bigNumberDisplay.style.color = color;
+        // Create a temporary overlay number for the animation
+        const overlay = document.createElement('div');
+        overlay.className = 'big-number-overlay';
+        overlay.style.position = 'absolute';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.fontSize = 'inherit';
+        overlay.style.color = color;
+        overlay.style.zIndex = '10';
+        overlay.style.pointerEvents = 'none';
+        overlay.textContent = number;
         
-        // Apply animation by removing and re-adding the class
-        bigNumberDisplay.classList.remove('big-number-pulse');
-        void bigNumberDisplay.offsetWidth; // Force reflow
-        bigNumberDisplay.classList.add('big-number-pulse');
+        // Set initial state for animation
+        overlay.style.opacity = '0';
+        overlay.style.transform = 'scale(0)';
+        
+        // Add the overlay to the big number display
+        bigNumberDisplay.appendChild(overlay);
+        
+        // Force reflow
+        void overlay.offsetWidth;
+        
+        // Use custom animation with more dramatic effect
+        overlay.style.transition = 'transform 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49), opacity 0.4s ease';
+        overlay.style.transform = 'scale(1.1)';
+        overlay.style.opacity = '1';
+        
+        // Remove the scaling after the animation completes
+        setTimeout(() => {
+            overlay.style.transform = 'scale(1)';
+        }, 350);
+        
+        // After animation completes, update the actual display and remove overlay
+        setTimeout(() => {
+            // Update the number and color
+            bigNumberDisplay.textContent = number;
+            bigNumberDisplay.style.color = color;
+            
+            // Remove the overlay after updating the display
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        }, 450); // Animation duration
+        
+        // Apply a pulse animation to the entire counter for extra feedback
+        bigNumberDisplay.style.transition = 'transform 0.3s ease';
+        bigNumberDisplay.style.transform = 'scale(1.05)';
+        setTimeout(() => {
+            bigNumberDisplay.style.transform = 'scale(1)';
+        }, 300);
         
         // Add this square to colored squares with a position for data consistency
         const position = number - 1;
@@ -991,25 +1290,5 @@ document.addEventListener('DOMContentLoaded', function() {
         currentDayData.coloredSquares.push(squareData);
     }
 
-    // Extracted completion check logic to a separate function
-    function checkCompletionAndSave(currentDayData) {
-        // Check if we reached 100 for this day, mark as completed if so
-        if (currentDayData.count >= 100) {
-            currentDayData.completed = true;
-            
-            // Check if all 7 days are completed
-            const allDaysCompleted = dayData.every(day => day.completed);
-            if (allDaysCompleted) {
-                showCongratulations();
-            } else {
-                // Move to next day if not all days completed
-                moveToNextDay();
-            }
-        }
-        
-        // Save progress to local storage
-        saveProgress();
-    }
-    
     initializeApp();
 });
