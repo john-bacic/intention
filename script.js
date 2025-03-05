@@ -53,6 +53,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Queue for handling rapid clicks
     let clickQueue = [];
     let processingQueue = false;
+    // Track the last processed number for data consistency
+    let lastProcessedNumber = 0;
     
     // Helper functions
     function generateMutedColor() {
@@ -69,7 +71,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize the app
     function initializeApp() {
         // Load data or initialize fresh
-        loadDataFromLocalStorage();
+        loadProgress();
         
         // Create squares grid
         generateSquares();
@@ -147,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function loadDataFromLocalStorage() {
+    function loadProgress() {
         const savedData = localStorage.getItem(STORAGE_KEY);
         
         if (savedData) {
@@ -239,9 +241,36 @@ document.addEventListener('DOMContentLoaded', function() {
                 completed: false
             });
         }
+        
+        // Initialize lastProcessedNumber based on current day's data
+        if (dayData && dayData[currentDay - 1]) {
+            const currentDayData = dayData[currentDay - 1];
+            if (currentDayData.coloredSquares && currentDayData.coloredSquares.length > 0) {
+                const numbers = currentDayData.coloredSquares.map(square => square.number);
+                lastProcessedNumber = Math.max(...numbers, 0);
+            } else {
+                lastProcessedNumber = 0;
+            }
+        }
+        
+        updateUI();
+        
+        // If it's dark mode, apply it
+        if (settings.darkMode) {
+            applyDarkMode();
+        }
+        
+        // Update the UI mode (random/sequential/big)
+        const modeRadios = document.querySelectorAll('input[name="display-mode"]');
+        modeRadios.forEach(radio => {
+            if (radio.value === settings.displayMode) {
+                radio.checked = true;
+            }
+        });
     }
     
     function saveDataToLocalStorage() {
+        // Save the day data, current day, and user motivation to local storage
         const dataToSave = {
             dayData: dayData,
             currentDay: currentDay,
@@ -673,21 +702,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Generate a muted color for the square
         const color = generateMutedColor();
         
-        // Make sure we're using the next sequential number
-        const existingNumbers = currentDayData.coloredSquares.map(square => square.number);
-        let nextNumber = 1;
-        
-        // Find the first missing number in sequence
-        while (existingNumbers.includes(nextNumber)) {
-            nextNumber++;
-        }
-        
-        // Set count to match the next number we're adding
-        currentDayData.count = nextNumber;
-        
-        // Add click to queue rather than process immediately
+        // Add click to queue with minimal data
         clickQueue.push({
-            number: nextNumber,
             color: color,
             dayData: currentDayData
         });
@@ -704,7 +720,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 150);
     }
     
-    // New function to process the click queue
+    // Revised function to process the click queue
     function processClickQueue() {
         // If queue is empty, stop processing
         if (clickQueue.length === 0) {
@@ -715,120 +731,84 @@ document.addEventListener('DOMContentLoaded', function() {
         // Mark as processing
         processingQueue = true;
         
-        // Process multiple clicks at once in case of very rapid tapping
-        const clicksToProcess = Math.min(clickQueue.length, 3); // Process up to 3 clicks at once
+        // Get the next click from the queue - ONLY ONE AT A TIME
+        const clickData = clickQueue.shift();
         
-        for (let i = 0; i < clicksToProcess; i++) {
-            // Get the next click from the queue
-            const clickData = clickQueue.shift();
-            
-            if (!clickData) break; // Safety check
-            
-            const { number, color, dayData } = clickData;
-            
-            // Handle differently based on display mode
-            if (settings.displayMode === 'big') {
-                // Big mode - direct and simple approach
-                handleBigModeClick(number, color);
-            } else {
-                // Grid mode - we'll process regardless of animation status
-                // Just set the flag to prevent direct clicks outside the queue
-                isAnimating = true;
-                
-                // Handle grid mode click
-                handleGridModeClick(dayData, color);
-            }
-            
-            // Check completion after processing each click
-            checkCompletionAndSave(dayData);
+        if (!clickData) {
+            processingQueue = false;
+            return;
         }
         
-        // If in big mode or if we still have clicks in the queue, continue processing immediately
-        if (settings.displayMode === 'big' || clickQueue.length > 0) {
-            // Use requestAnimationFrame for better performance than setTimeout
+        const { color, dayData } = clickData;
+        
+        // Calculate the next sequential number
+        // This ensures we never skip numbers, even with rapid clicks
+        const existingNumbers = dayData.coloredSquares.map(square => square.number);
+        lastProcessedNumber++;
+        
+        // Skip this number if it's already been used
+        while (existingNumbers.includes(lastProcessedNumber)) {
+            lastProcessedNumber++;
+        }
+        
+        // Use the calculated sequential number
+        const nextNumber = lastProcessedNumber;
+        
+        // Update the day data count
+        dayData.count = Math.max(dayData.count, nextNumber);
+        
+        // Handle differently based on display mode
+        if (settings.displayMode === 'big') {
+            // Big mode - direct and simple approach
+            handleBigModeClick(nextNumber, color);
+            
+            // Check completion after processing the click
+            checkCompletionAndSave(dayData);
+            
+            // Continue processing queue immediately
+            requestAnimationFrame(processClickQueue);
+        } else {
+            // Grid mode
+            handleGridModeClick(dayData, color, nextNumber);
+            
+            // Check completion after processing the click
+            checkCompletionAndSave(dayData);
+            
+            // Continue processing queue immediately
+            // This is key - we don't wait for animations to complete
             requestAnimationFrame(processClickQueue);
         }
     }
     
-    // Extracted completion check logic to a separate function
-    function checkCompletionAndSave(currentDayData) {
-        // Check if we reached 100 for this day, mark as completed if so
-        if (currentDayData.count >= 100) {
-            currentDayData.completed = true;
-            
-            // Check if all 7 days are completed
-            const allDaysCompleted = dayData.every(day => day.completed);
-            if (allDaysCompleted) {
-                showCongratulations();
-            } else {
-                // Move to next day if not all days completed
-                moveToNextDay();
-            }
+    // New function to handle Grid mode clicks - updated to accept explicit number parameter
+    function handleGridModeClick(currentDayData, color, number) {
+        let position;
+        
+        if (settings.displayMode === 'random') {
+            position = getNextRandomPosition();
+        } else if (settings.displayMode === 'sequential') {
+            position = number - 1; // Position is 0-indexed
         }
         
-        // Save progress to local storage
-        saveProgress();
-    }
-    
-    // Completely rewritten function for Big mode
-    function handleBigModeClick(number, color) {
-        // Update the button color
-        countButton.style.backgroundColor = color;
+        // Always color the square immediately
+        colorSquareInGrid(position, number, color);
         
-        // Get the big number display
-        const bigNumberDisplay = document.querySelector('.big-number-display');
-        
-        // Update the number and color
-        bigNumberDisplay.textContent = number;
-        bigNumberDisplay.style.color = color;
-        
-        // Apply animation by removing and re-adding the class
-        bigNumberDisplay.classList.remove('big-number-pulse');
-        void bigNumberDisplay.offsetWidth; // Force reflow
-        bigNumberDisplay.classList.add('big-number-pulse');
-        
-        // Add this square to colored squares with a position for data consistency
-        const position = number - 1;
+        // Add to colored squares list - this ensures data consistency
         const squareData = { 
             number: number, 
             color: color,
             position: position
         };
         
-        // Get current day data and add the square
-        const currentDayData = dayData[currentDay - 1];
-        currentDayData.coloredSquares.push(squareData);
-    }
-    
-    // New function to handle Grid mode clicks
-    function handleGridModeClick(currentDayData, color) {
-        let position;
-        let displayNumber = currentDayData.count; // Always use the current count as the display number
-        
-        if (settings.displayMode === 'random') {
-            position = getNextRandomPosition();
-        } else if (settings.displayMode === 'sequential') {
-            position = currentDayData.count - 1; // Position is 0-indexed
-        }
-        
-        // Add this square to colored squares
-        const squareData = { 
-            number: displayNumber, 
-            color: color,
-            position: position
-        };
         currentDayData.coloredSquares.push(squareData);
         
         // Update the button color to match the latest square
         countButton.style.backgroundColor = color;
         
-        // Color the square with animation
-        colorSquareInGrid(position, displayNumber, color);
-        
-        // Update UI after animation completes
+        // Update UI with minimal delay - this refreshes the progress bar
         setTimeout(() => {
             updateUI();
-        }, 500);
+        }, 10);
     }
     
     // Renamed and simplified function for grid mode only
@@ -837,24 +817,18 @@ document.addEventListener('DOMContentLoaded', function() {
         if (position < squares.length) {
             const square = squares[position];
             
-            // Set the color and number immediately without waiting for animation
+            // Set the color and number immediately - NO ANIMATION
             square.style.backgroundColor = color;
             square.textContent = number;
             square.classList.add('colored');
             
-            // Apply animation directly with CSS class instead of inline styles
+            // Just a tiny scale effect that doesn't delay processing
             square.classList.add('square-animate');
             
-            // Reset animation state immediately so next tap can be processed
-            isAnimating = false;
-            
-            // Allow the next click in queue to be processed immediately
-            setTimeout(processClickQueue, 0);
-            
-            // Remove animation class after animation completes in background
+            // Remove the animation class after a short time
             setTimeout(() => {
                 square.classList.remove('square-animate');
-            }, 200); // Even shorter animation cleanup time
+            }, 100);
         }
     }
     
@@ -1000,6 +974,56 @@ document.addEventListener('DOMContentLoaded', function() {
             dayData = generateInitialDayData();
             saveProgress();
         }
+    }
+    
+    // Completely rewritten function for Big mode
+    function handleBigModeClick(number, color) {
+        // Update the button color
+        countButton.style.backgroundColor = color;
+        
+        // Get the big number display
+        const bigNumberDisplay = document.querySelector('.big-number-display');
+        
+        // Update the number and color
+        bigNumberDisplay.textContent = number;
+        bigNumberDisplay.style.color = color;
+        
+        // Apply animation by removing and re-adding the class
+        bigNumberDisplay.classList.remove('big-number-pulse');
+        void bigNumberDisplay.offsetWidth; // Force reflow
+        bigNumberDisplay.classList.add('big-number-pulse');
+        
+        // Add this square to colored squares with a position for data consistency
+        const position = number - 1;
+        const squareData = { 
+            number: number, 
+            color: color,
+            position: position
+        };
+        
+        // Get current day data and add the square
+        const currentDayData = dayData[currentDay - 1];
+        currentDayData.coloredSquares.push(squareData);
+    }
+
+    // Extracted completion check logic to a separate function
+    function checkCompletionAndSave(currentDayData) {
+        // Check if we reached 100 for this day, mark as completed if so
+        if (currentDayData.count >= 100) {
+            currentDayData.completed = true;
+            
+            // Check if all 7 days are completed
+            const allDaysCompleted = dayData.every(day => day.completed);
+            if (allDaysCompleted) {
+                showCongratulations();
+            } else {
+                // Move to next day if not all days completed
+                moveToNextDay();
+            }
+        }
+        
+        // Save progress to local storage
+        saveProgress();
     }
     
     initializeApp();
