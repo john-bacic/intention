@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restart 100 Times Challenge</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Restart 100 Times Challenge App</h1>
+    <p>This utility will help you restart the 100 Times Challenge app by:</p>
+    <ol>
+        <li>Unregistering all service workers</li>
+        <li>Clearing the browser cache for this site</li>
+        <li>Redirecting you back to the app</li>
+    </ol>
+    
+    <button id="restart-btn">Restart App</button>
+    <div id="status" class="status"></div>
+    
+    <script>
+        document.getElementById('restart-btn').addEventListener('click', async function() {
+            const statusEl = document.getElementById('status');
+            statusEl.innerHTML = 'Working...';
+            
+            try {
+                // Unregister service workers
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (let registration of registrations) {
+                        await registration.unregister();
+                        console.log('ServiceWorker unregistered');
+                    }
+                    statusEl.innerHTML += '<br>✅ Service workers unregistered';
+                }
+                
+                // Clear caches
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    await Promise.all(
+                        cacheNames.map(cacheName => caches.delete(cacheName))
+                    );
+                    statusEl.innerHTML += '<br>✅ Cache cleared';
+                }
+                
+                // Clear localStorage
+                localStorage.removeItem('100TimesChallenge');
+                statusEl.innerHTML += '<br>✅ Local storage cleared';
+                
+                // Success message
+                statusEl.innerHTML += '<br><br>✅ App reset complete! Redirecting to app...';
+                statusEl.className = 'status success';
+                
+                // Redirect back to app after a short delay
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error during restart:', error);
+                statusEl.innerHTML = `Error during restart: ${error.message}`;
+                statusEl.className = 'status error';
+            }
+        });
+    </script>
+</body>
+</html>
