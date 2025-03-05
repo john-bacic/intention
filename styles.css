@@ -34,7 +34,7 @@ body {
     width: 100%;
     max-width: 500px;
     margin: 0 auto;
-    padding: 0;
+    padding: 10px;
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -165,15 +165,15 @@ h1 {
 }
 
 .grid-container {
-    width: 100%;    
-    height: auto;
-    padding: 16px;
-    box-sizing: border-box;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    overflow: hidden;
+    position: relative;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 5px;
 }
 
 #squares-grid {
@@ -189,7 +189,7 @@ h1 {
 
 .square {
     aspect-ratio: 1/1;
-    background-color: #222;
+    background-color: #1D1D1D;
     border-radius: 4px;
     cursor: default;
     transition: background-color 0.2s;
@@ -205,6 +205,29 @@ h1 {
 .square.colored {
     color: white !important; /* Show numbers when colored */
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.square-animate {
+    animation: squareAppear 0.5s cubic-bezier(0.18, 1.65, 0.58, 0.9) forwards;
+}
+
+@keyframes squareAppear {
+    0% { 
+        transform: scale(0.2); 
+        opacity: 0; 
+    }
+    50% { 
+        transform: scale(1.1); 
+        opacity: 1; 
+    }
+    75% { 
+        transform: scale(0.95); 
+        opacity: 1; 
+    }
+    100% { 
+        transform: scale(1); 
+        opacity: 1; 
+    }
 }
 
 .input-container {
@@ -233,6 +256,11 @@ h1 {
     box-sizing: border-box;
     align-items: center;
     text-align: center;
+}
+
+/* Italicize placeholder text */
+#user-sentence::placeholder {
+    font-style: italic;
 }
 
 .sentence {
@@ -347,20 +375,79 @@ h1 {
 
 .settings-panel {
     position: absolute;
-    top: 100%;
-    right: 0;
-    background-color: #222;
+    top: 60px;
+    right: 20px;
+    background-color: #1e1e1e;
     border-radius: 8px;
     padding: 15px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-    display: none;
-    margin-top: 10px;
-    min-width: 150px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    width: 250px;
+    transform: scale(0.9);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .settings-panel.active {
-    display: block;
-    animation: fadeIn 0.3s ease-in-out;
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.settings-group {
+    margin-bottom: 20px;
+}
+
+.settings-group h3 {
+    font-size: 1em;
+    margin-bottom: 10px;
+    color: #e0e0e0;
+}
+
+.radio-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.radio-option label {
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.radio-option input[type="radio"] {
+    cursor: pointer;
+}
+
+.big-number-display {
+    font-size: 20rem;
+    display: flex; /* Always visible */
+    justify-content: center;
+    align-items: center;
+    height: 46vh; /* Set a specific height */
+    width: 100%;
+    color: #e0e0e0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    user-select: none;
+    transition: color 0.3s ease;
+}
+
+.big-number-pulse {
+    animation: bigNumberPulse 0.5s ease-out;
+    animation-delay: 0s; /* Ensure no delay */
+}
+
+@keyframes bigNumberPulse {
+    0% { transform: scale(0.9); opacity: 0.8; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 #reset-button {
@@ -385,11 +472,6 @@ h1 {
 #reset-button:active {
     background-color: #b71c1c;
     transform: translateY(1px);
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Prevent double-tap zooming on mobile */

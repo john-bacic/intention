@@ -47,8 +47,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentCount = 0;
     let userMotivation = '';
     let dayData = [];
-    let settings = { darkMode: false };
-    let isAnimating = false; // Move the isAnimating variable outside the function
+    let settings = { darkMode: false, displayMode: 'random' };
+    let isAnimating = false;
+    let bigModeAnimationTimeout = null;
     
     // Helper functions
     function generateMutedColor() {
@@ -76,8 +77,17 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update the UI
         updateUI();
         
-        // Precompute random positions for better performance
-        precomputeRandomPositions();
+        // Set initial display based on display mode
+        const squaresGrid = document.getElementById('squares-grid');
+        const bigNumberDisplay = document.querySelector('.big-number-display');
+        
+        if (settings.displayMode === 'big') {
+            squaresGrid.style.display = 'none';
+            bigNumberDisplay.style.display = 'flex';
+        } else {
+            squaresGrid.style.display = 'grid';
+            bigNumberDisplay.style.display = 'none';
+        }
         
         // Register service worker for PWA support
         if ('serviceWorker' in navigator) {
@@ -143,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 dayData = parsed.dayData || dayData;
                 currentDay = parsed.currentDay || 1;
                 userMotivation = parsed.userMotivation || '';
-                settings = parsed.settings || { darkMode: false };
+                settings = parsed.settings || { darkMode: false, displayMode: 'random' };
                 
                 // Ensure all day data has necessary properties
                 dayData.forEach(day => {
@@ -229,14 +239,52 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Update user sentence
-        if (userSentence) userSentence.value = userMotivation;
+        // Update user sentence with quotation marks
+        if (userSentence && userMotivation) {
+            // Only add quotes if there's actual content
+            if (userMotivation.trim() !== '') {
+                userSentence.value = `"${userMotivation}"`;
+            } else {
+                userSentence.value = userMotivation;
+            }
+        }
         
         // Update button appearance based on completion state
         updateButtonAppearance();
         
-        // Regenerate the grid with current data
-        regenerateGrid();
+        // Update display based on display mode
+        const squaresGrid = document.getElementById('squares-grid');
+        const bigNumberDisplay = document.querySelector('.big-number-display');
+        
+        if (settings.displayMode === 'big') {
+            // Hide grid, show big number
+            squaresGrid.style.display = 'none';
+            bigNumberDisplay.style.display = 'flex';
+            
+            // Show the current count in big display
+            const currentDayData = dayData[currentDay - 1];
+            if (currentDayData.count > 0) {
+                // Only update the number if it's not already set
+                if (bigNumberDisplay.textContent !== currentDayData.count.toString()) {
+                    bigNumberDisplay.textContent = currentDayData.count;
+                }
+                
+                // Set the color to match the last colored square
+                if (currentDayData.coloredSquares.length > 0) {
+                    const lastColor = currentDayData.coloredSquares[currentDayData.coloredSquares.length - 1].color;
+                    bigNumberDisplay.style.color = lastColor;
+                }
+            } else {
+                bigNumberDisplay.textContent = '0';
+                bigNumberDisplay.style.color = '#888';
+            }
+        } else {
+            // Hide big number, show grid
+            squaresGrid.style.display = 'grid';
+            bigNumberDisplay.style.display = 'none';
+            // Regenerate the grid with current data
+            regenerateGrid();
+        }
     }
     
     function regenerateGrid() {
@@ -377,10 +425,33 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Save user sentence
-        userSentence.addEventListener('input', function() {
-            userMotivation = this.value;
-            saveDataToLocalStorage();
-        });
+        if (userSentence) {
+            userSentence.addEventListener('input', function() {
+                // Remove quotes when saving to the userMotivation variable
+                let inputValue = this.value;
+                
+                // Strip quotes if they exist
+                if (inputValue.startsWith('"') && inputValue.endsWith('"')) {
+                    userMotivation = inputValue.substring(1, inputValue.length - 1);
+                } else {
+                    userMotivation = inputValue;
+                }
+                
+                saveProgress();
+            });
+            
+            // When the input field loses focus, ensure quotes are added
+            userSentence.addEventListener('blur', function() {
+                if (this.value.trim() !== '') {
+                    // If the value doesn't already have quotes, add them
+                    if (!this.value.startsWith('"') || !this.value.endsWith('"')) {
+                        // Remove any existing quotes first
+                        let cleanValue = this.value.replace(/^"|"$/g, '');
+                        this.value = `"${cleanValue}"`;
+                    }
+                }
+            });
+        }
         
         // Close settings panel when clicking outside
         document.addEventListener('click', function(event) {
@@ -388,24 +459,103 @@ document.addEventListener('DOMContentLoaded', function() {
                 settingsPanel.classList.remove('active');
             }
         });
+        
+        // Display mode radio buttons
+        const displayModeRadios = document.querySelectorAll('input[name="display-mode"]');
+        displayModeRadios.forEach(radio => {
+            // Set the initial state based on settings
+            if (radio.value === settings.displayMode) {
+                radio.checked = true;
+            }
+            
+            radio.addEventListener('change', function() {
+                if (this.checked) {
+                    const previousMode = settings.displayMode;
+                    settings.displayMode = this.value;
+                    
+                    // Clear any existing animation timeouts
+                    if (bigModeAnimationTimeout) {
+                        clearTimeout(bigModeAnimationTimeout);
+                        bigModeAnimationTimeout = null;
+                    }
+                    
+                    // Reset animation state
+                    isAnimating = false;
+                    
+                    // Update UI based on mode
+                    const squaresGrid = document.getElementById('squares-grid');
+                    const bigNumberDisplay = document.querySelector('.big-number-display');
+                    
+                    // Reset any classes on big number display
+                    bigNumberDisplay.classList.remove('active');
+                    bigNumberDisplay.classList.remove('fade-out');
+                    bigNumberDisplay.classList.remove('big-number-pulse');
+                    
+                    if (settings.displayMode === 'big') {
+                        // Hide grid completely when in big mode
+                        squaresGrid.style.display = 'none';
+                        bigNumberDisplay.style.display = 'flex';
+                        
+                        // Show the current count in big display
+                        const currentDayData = dayData[currentDay - 1];
+                        if (currentDayData.count > 0) {
+                            bigNumberDisplay.textContent = currentDayData.count;
+                            if (currentDayData.coloredSquares.length > 0) {
+                                const lastColor = currentDayData.coloredSquares[currentDayData.coloredSquares.length - 1].color;
+                                bigNumberDisplay.style.color = lastColor;
+                            }
+                        } else {
+                            bigNumberDisplay.textContent = '0';
+                            bigNumberDisplay.style.color = '#888';
+                        }
+                    } else {
+                        // Show grid for other modes
+                        squaresGrid.style.display = 'grid';
+                        bigNumberDisplay.style.display = 'none';
+                        
+                        // Always rearrange squares when switching between modes
+                        if (previousMode !== settings.displayMode) {
+                            // Rearrange all days' data
+                            dayData.forEach(day => {
+                                if (day.coloredSquares && day.coloredSquares.length > 0) {
+                                    // Rearrange positions
+                                    if (settings.displayMode === 'sequential') {
+                                        // Sequential: assign positions 0 to count-1
+                                        day.coloredSquares.forEach((square, index) => {
+                                            square.position = index;
+                                        });
+                                    } else if (settings.displayMode === 'random') {
+                                        // Random: assign random unique positions
+                                        let availablePositions = Array.from({length: 100}, (_, i) => i);
+                                        day.coloredSquares.forEach((square) => {
+                                            // Get random position from available positions
+                                            const randomIndex = Math.floor(Math.random() * availablePositions.length);
+                                            square.position = availablePositions[randomIndex];
+                                            // Remove used position
+                                            availablePositions.splice(randomIndex, 1);
+                                        });
+                                    }
+                                }
+                            });
+                            
+                            // Regenerate the grid for the current day
+                            regenerateGrid();
+                        }
+                    }
+                    
+                    // Save the new settings
+                    saveProgress();
+                }
+            });
+        });
     }
     
     function handleCountClick() {
-        // Prevent multiple clicks during animation
-        if (isAnimating) return;
-        isAnimating = true;
-        
-        // Set a timeout to re-enable clicks after animation completes
-        setTimeout(() => {
-            isAnimating = false;
-        }, 800);  // Slightly longer than the animation duration
-        
         // Get current day data
         const currentDayData = dayData[currentDay - 1];
         
         // If day already completed, don't do anything
         if (currentDayData.completed) {
-            isAnimating = false;
             return;
         }
         
@@ -415,22 +565,18 @@ document.addEventListener('DOMContentLoaded', function() {
         // Increment count
         currentDayData.count++;
         
-        // Get a random available position in the grid
-        const position = getNextRandomPosition();
-        
-        // Add this square to colored squares
-        const squareData = { 
-            number: currentDayData.count, 
-            color: color,
-            position: position
-        };
-        currentDayData.coloredSquares.push(squareData);
-        
-        // Update the button color to match the latest square
-        countButton.style.backgroundColor = color;
-        
-        // Color the square directly - this is more reliable for animation
-        colorSquareDirectly(position, currentDayData.count, color);
+        // Handle differently based on display mode
+        if (settings.displayMode === 'big') {
+            // Big mode - direct and simple approach
+            handleBigModeClick(currentDayData.count, color);
+        } else {
+            // Grid mode - only proceed if not animating
+            if (isAnimating) return;
+            isAnimating = true;
+            
+            // Handle grid mode click
+            handleGridModeClick(currentDayData, color);
+        }
         
         // Check if we reached 100 for this day, mark as completed if so
         if (currentDayData.count >= 100) {
@@ -449,16 +595,98 @@ document.addEventListener('DOMContentLoaded', function() {
         // Save progress to local storage
         saveProgress();
         
-        // This will be called after the animation completes
-        setTimeout(() => {
-            updateUI();
-        }, 500);
-        
-        // Apply a small scale animation to the button
+        // Apply a small scale animation to the button (for all modes)
         countButton.classList.add('button-pressed');
         setTimeout(() => {
             countButton.classList.remove('button-pressed');
         }, 150);
+    }
+    
+    // Completely rewritten function for Big mode
+    function handleBigModeClick(number, color) {
+        // Update the button color
+        countButton.style.backgroundColor = color;
+        
+        // Get the big number display
+        const bigNumberDisplay = document.querySelector('.big-number-display');
+        
+        // Update the number and color
+        bigNumberDisplay.textContent = number;
+        bigNumberDisplay.style.color = color;
+        
+        // Apply animation by removing and re-adding the class
+        bigNumberDisplay.classList.remove('big-number-pulse');
+        void bigNumberDisplay.offsetWidth; // Force reflow
+        bigNumberDisplay.classList.add('big-number-pulse');
+        
+        // Add this square to colored squares with a position for data consistency
+        const position = number - 1;
+        const squareData = { 
+            number: number, 
+            color: color,
+            position: position
+        };
+        
+        // Get current day data and add the square
+        const currentDayData = dayData[currentDay - 1];
+        currentDayData.coloredSquares.push(squareData);
+    }
+    
+    // New function to handle Grid mode clicks
+    function handleGridModeClick(currentDayData, color) {
+        let position;
+        if (settings.displayMode === 'random') {
+            position = getNextRandomPosition();
+        } else if (settings.displayMode === 'sequential') {
+            position = currentDayData.count - 1;
+        }
+        
+        // Add this square to colored squares
+        const squareData = { 
+            number: currentDayData.count, 
+            color: color,
+            position: position
+        };
+        currentDayData.coloredSquares.push(squareData);
+        
+        // Update the button color to match the latest square
+        countButton.style.backgroundColor = color;
+        
+        // Color the square with animation
+        colorSquareInGrid(position, currentDayData.count, color);
+        
+        // Update UI after animation completes
+        setTimeout(() => {
+            updateUI();
+        }, 500);
+    }
+    
+    // Renamed and simplified function for grid mode only
+    function colorSquareInGrid(position, number, color) {
+        const squares = document.querySelectorAll('.square');
+        if (position < squares.length) {
+            const square = squares[position];
+            
+            // Use GPU acceleration for animations
+            square.style.willChange = 'transform, opacity';
+            
+            // Set the color and number immediately
+            square.style.backgroundColor = color;
+            square.textContent = number;
+            square.classList.add('colored');
+            
+            // Apply animation directly with CSS class instead of inline styles
+            square.classList.add('square-animate');
+            
+            // Remove animation class after animation completes to allow it to be re-applied
+            setTimeout(() => {
+                square.classList.remove('square-animate');
+                square.style.willChange = 'auto';
+                
+                // Reset animation state
+                isAnimating = false;
+            }, 600); // Match this to the total animation duration
+        }
     }
     
     function getAvailablePositions() {
@@ -477,73 +705,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return availablePositions;
     }
     
-    // Function to precompute random positions for better performance
-    let precomputedPositions = [];
-    
-    function precomputeRandomPositions() {
-        precomputedPositions = [];
-        for (let i = 0; i < 100; i++) {
-            const availablePositions = getAvailablePositions();
-            if (availablePositions.length === 0) break;
-            
-            const randomIndex = Math.floor(Math.random() * availablePositions.length);
-            const position = availablePositions[randomIndex];
-            precomputedPositions.push(position);
-        }
-    }
-    
     function getNextRandomPosition() {
-        if (precomputedPositions.length === 0) {
-            precomputeRandomPositions();
-        }
+        // Always get fresh available positions to ensure numbers never overlap
+        const availablePositions = getAvailablePositions();
         
-        if (precomputedPositions.length === 0) {
+        if (availablePositions.length === 0) {
             // Fallback if no positions available
             return 0;
         }
         
-        return precomputedPositions.shift();
-    }
-    
-    function colorSquareDirectly(position, number, color) {
-        const squares = document.querySelectorAll('.square');
-        if (position < squares.length) {
-            const square = squares[position];
-            
-            // Use GPU acceleration for animations
-            square.style.willChange = 'transform, opacity';
-            
-            // Set the initial styles for animation
-            square.style.transform = 'scale(0.01)';
-            square.style.opacity = '0';
-            square.style.transition = 'transform 0.5s cubic-bezier(0.18, 1.65, 0.58, 0.9), opacity 0.3s ease-out';
-            square.style.backgroundColor = color;
-            square.textContent = number;
-            square.classList.add('colored');
-            
-            // Force reflow
-            void square.offsetWidth;
-            
-            // Trigger animation with a very slight delay
-            setTimeout(() => {
-                square.style.transform = 'scale(1)';
-                square.style.opacity = '1';
-            }, 10);
-
-            // Add an extra bounce after the initial animation
-            setTimeout(() => {
-                square.style.transform = 'scale(1.2)';
-                
-                setTimeout(() => {
-                    square.style.transform = 'scale(1)';
-                    // Clean up will-change to free resources when animation is done
-                    setTimeout(() => {
-                        square.style.willChange = 'auto';
-                    }, 200);
-                }, 100);
-                
-            }, 300);
-        }
+        // Choose a random position from available positions
+        const randomIndex = Math.floor(Math.random() * availablePositions.length);
+        return availablePositions[randomIndex];
     }
     
     function showCongratulations() {
@@ -613,6 +786,32 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.classList.add('dark-mode');
         } else {
             document.body.classList.remove('dark-mode');
+        }
+    }
+    
+    function loadProgress() {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+            const data = JSON.parse(savedData);
+            currentDay = data.currentDay || 1;
+            userMotivation = data.userMotivation || '';
+            dayData = data.dayData || generateInitialDayData();
+            settings = data.settings || { darkMode: false, displayMode: 'random' };
+            
+            // Apply dark mode if saved
+            if (settings.darkMode) {
+                document.body.classList.add('dark-mode');
+                if (darkModeToggle) darkModeToggle.checked = true;
+            }
+            
+            // Update the user sentence display with quotes
+            if (userSentence && userMotivation && userMotivation.trim() !== '') {
+                userSentence.value = `"${userMotivation}"`;
+            }
+        } else {
+            // Initialize with default data
+            dayData = generateInitialDayData();
+            saveProgress();
         }
     }
     
