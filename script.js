@@ -168,6 +168,52 @@ document.addEventListener('DOMContentLoaded', function() {
                             square.position = index; // Just use sequential positions for old data
                         }
                     });
+                    
+                    // Verify data consistency
+                    if (day.coloredSquares.length > 0) {
+                        // Sort by number
+                        day.coloredSquares.sort((a, b) => a.number - b.number);
+                        
+                        // Check for missing numbers
+                        const numbers = day.coloredSquares.map(square => square.number);
+                        const maxNumber = Math.max(...numbers, 0);
+                        const expectedNumbers = Array.from({length: maxNumber}, (_, i) => i + 1);
+                        const missingNumbers = expectedNumbers.filter(num => !numbers.includes(num));
+                        
+                        // If missing numbers detected, fix the data
+                        if (missingNumbers.length > 0) {
+                            for (const missingNum of missingNumbers) {
+                                // Find an unused position
+                                let availablePositions = [];
+                                for (let i = 0; i < 100; i++) {
+                                    if (!day.coloredSquares.some(square => square.position === i)) {
+                                        availablePositions.push(i);
+                                    }
+                                }
+                                
+                                const position = availablePositions.length > 0 ? 
+                                    availablePositions[0] : 
+                                    missingNum - 1; // Fallback to sequential position
+                                    
+                                day.coloredSquares.push({
+                                    number: missingNum,
+                                    color: generateMutedColor(),
+                                    position: position
+                                });
+                            }
+                            
+                            // Re-sort after adding missing numbers
+                            day.coloredSquares.sort((a, b) => a.number - b.number);
+                        }
+                        
+                        // Make sure count reflects the highest number
+                        if (day.coloredSquares.length > 0) {
+                            const highestNumber = day.coloredSquares[day.coloredSquares.length - 1].number;
+                            if (day.count < highestNumber) {
+                                day.count = highestNumber;
+                            }
+                        }
+                    }
                 });
                 
                 applyDarkMode();
@@ -295,6 +341,7 @@ document.addEventListener('DOMContentLoaded', function() {
         for (let i = 1; i <= 100; i++) {
             const square = document.createElement('div');
             square.classList.add('square');
+            square.dataset.index = i - 1; // Store the position index as a data attribute
             square.textContent = i; // Set numbers but they'll be transparent initially
             squaresGrid.appendChild(square);
         }
@@ -303,49 +350,79 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentDayData = dayData[currentDay - 1];
         const squares = document.querySelectorAll('.square');
         
-        currentDayData.coloredSquares.forEach(squareData => {
-            const position = squareData.position || 0; // Default to 0 if position is undefined
+        // Create a sorted copy of coloredSquares by number for consistent display
+        let sortedSquares = [...currentDayData.coloredSquares];
+        sortedSquares.sort((a, b) => a.number - b.number);
+        
+        // Verify we don't have any missing numbers
+        const numbers = sortedSquares.map(square => square.number);
+        const expectedNumbers = Array.from({length: currentDayData.count}, (_, i) => i + 1);
+        const missingNumbers = expectedNumbers.filter(num => !numbers.includes(num));
+        
+        // Add any missing numbers
+        for (const missingNum of missingNumbers) {
+            // Get a position that's not used yet
+            let availablePositions = [];
+            for (let i = 0; i < 100; i++) {
+                if (!sortedSquares.some(square => square.position === i)) {
+                    availablePositions.push(i);
+                }
+            }
+            
+            const position = availablePositions.length > 0 ? 
+                availablePositions[0] : 
+                missingNum - 1; // Fallback to sequential position
+                
+            const newSquare = {
+                number: missingNum,
+                color: generateMutedColor(),
+                position: position
+            };
+            
+            sortedSquares.push(newSquare);
+            currentDayData.coloredSquares.push(newSquare);
+        }
+        
+        // Re-sort after adding missing numbers
+        sortedSquares.sort((a, b) => a.number - b.number);
+        
+        // Apply the colored squares
+        sortedSquares.forEach(squareData => {
+            const position = squareData.position;
             if (position < squares.length) {
                 const square = squares[position];
                 square.classList.add('colored');
                 square.style.backgroundColor = squareData.color;
                 square.textContent = squareData.number;
+                
                 // No animation or transition for already colored squares
                 square.style.transform = 'scale(1)';
                 square.style.opacity = '1';
                 square.style.transition = 'none';
             }
         });
+        
+        // Make sure the count matches the highest number
+        if (sortedSquares.length > 0) {
+            const highestNumber = sortedSquares[sortedSquares.length - 1].number;
+            if (currentDayData.count < highestNumber) {
+                currentDayData.count = highestNumber;
+            }
+        }
+        
+        // Save the corrected data
+        saveDataToLocalStorage();
     }
     
-    function updateButtonAppearance() {
-        const currentDayData = dayData[currentDay - 1];
-        const isCurrentDayComplete = currentDayData.completed;
-        
-        // Disable button if day is completed
-        countButton.disabled = isCurrentDayComplete;
-        
-        if (isCurrentDayComplete) {
-            // Update SVG to checkmark for completed state
-            const plusIcon = countButton.querySelector('.plus-icon');
-            if (plusIcon) {
-                plusIcon.innerHTML = '<path d="M25 55 L45 75 L75 30" stroke="white" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
-            }
-            countButton.style.backgroundColor = '#555'; // Reset to default gray when completed
-        } else {
-            // Restore plus icon for incomplete state
-            const plusIcon = countButton.querySelector('.plus-icon');
-            if (plusIcon) {
-                plusIcon.innerHTML = '<path d="M50 15 A5 5 0 0 1 55 20 L55 45 L80 45 A5 5 0 0 1 85 50 A5 5 0 0 1 80 55 L55 55 L55 80 A5 5 0 0 1 50 85 A5 5 0 0 1 45 80 L45 55 L20 55 A5 5 0 0 1 15 50 A5 5 0 0 1 20 45 L45 45 L45 20 A5 5 0 0 1 50 15 Z" fill="white"/>';
-            }
-            
-            // Set the button color to the last colored square if available, or default green
-            if (currentDayData.coloredSquares.length > 0) {
-                const lastColoredSquare = currentDayData.coloredSquares[currentDayData.coloredSquares.length - 1];
-                countButton.style.backgroundColor = lastColoredSquare.color;
-            } else {
-                countButton.style.backgroundColor = '#4CAF50'; // Default green
-            }
+    function initializeData() {
+        // Initialize empty data for all 7 days
+        for (let i = 1; i <= 7; i++) {
+            dayData.push({
+                day: i,
+                count: 0,
+                coloredSquares: [],
+                completed: false
+            });
         }
     }
     
@@ -550,6 +627,37 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    function updateButtonAppearance() {
+        const currentDayData = dayData[currentDay - 1];
+        const isCurrentDayComplete = currentDayData.completed;
+        
+        // Disable button if day is completed
+        countButton.disabled = isCurrentDayComplete;
+        
+        if (isCurrentDayComplete) {
+            // Update SVG to checkmark for completed state
+            const plusIcon = countButton.querySelector('.plus-icon');
+            if (plusIcon) {
+                plusIcon.innerHTML = '<path d="M25 55 L45 75 L75 30" stroke="white" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+            }
+            countButton.style.backgroundColor = '#555'; // Reset to default gray when completed
+        } else {
+            // Restore plus icon for incomplete state
+            const plusIcon = countButton.querySelector('.plus-icon');
+            if (plusIcon) {
+                plusIcon.innerHTML = '<path d="M50 15 A5 5 0 0 1 55 20 L55 45 L80 45 A5 5 0 0 1 85 50 A5 5 0 0 1 80 55 L55 55 L55 80 A5 5 0 0 1 50 85 A5 5 0 0 1 45 80 L45 55 L20 55 A5 5 0 0 1 15 50 A5 5 0 0 1 20 45 L45 45 L45 20 A5 5 0 0 1 50 15 Z" fill="white"/>';
+            }
+            
+            // Set the button color to the last colored square if available, or default green
+            if (currentDayData.coloredSquares.length > 0) {
+                const lastColoredSquare = currentDayData.coloredSquares[currentDayData.coloredSquares.length - 1];
+                countButton.style.backgroundColor = lastColoredSquare.color;
+            } else {
+                countButton.style.backgroundColor = '#4CAF50'; // Default green
+            }
+        }
+    }
+    
     function handleCountClick() {
         // Get current day data
         const currentDayData = dayData[currentDay - 1];
@@ -562,13 +670,22 @@ document.addEventListener('DOMContentLoaded', function() {
         // Generate a muted color for the square
         const color = generateMutedColor();
         
-        // Increment count
-        currentDayData.count++;
+        // Make sure we're using the next sequential number
+        const existingNumbers = currentDayData.coloredSquares.map(square => square.number);
+        let nextNumber = 1;
+        
+        // Find the first missing number in sequence
+        while (existingNumbers.includes(nextNumber)) {
+            nextNumber++;
+        }
+        
+        // Set count to match the next number we're adding
+        currentDayData.count = nextNumber;
         
         // Handle differently based on display mode
         if (settings.displayMode === 'big') {
             // Big mode - direct and simple approach
-            handleBigModeClick(currentDayData.count, color);
+            handleBigModeClick(nextNumber, color);
         } else {
             // Grid mode - only proceed if not animating
             if (isAnimating) return;
@@ -635,15 +752,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // New function to handle Grid mode clicks
     function handleGridModeClick(currentDayData, color) {
         let position;
+        let displayNumber = currentDayData.count; // Always use the current count as the display number
+        
         if (settings.displayMode === 'random') {
             position = getNextRandomPosition();
         } else if (settings.displayMode === 'sequential') {
-            position = currentDayData.count - 1;
+            position = currentDayData.count - 1; // Position is 0-indexed
         }
         
         // Add this square to colored squares
         const squareData = { 
-            number: currentDayData.count, 
+            number: displayNumber, 
             color: color,
             position: position
         };
@@ -653,7 +772,7 @@ document.addEventListener('DOMContentLoaded', function() {
         countButton.style.backgroundColor = color;
         
         // Color the square with animation
-        colorSquareInGrid(position, currentDayData.count, color);
+        colorSquareInGrid(position, displayNumber, color);
         
         // Update UI after animation completes
         setTimeout(() => {
@@ -778,6 +897,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function saveProgress() {
+        // Update user motivation before saving
+        userMotivation = userSentence.value;
+        
+        // Ensure all data is properly ordered and consistent before saving
+        dayData.forEach(day => {
+            if (day.coloredSquares.length > 0) {
+                // Sort by number for consistency
+                day.coloredSquares.sort((a, b) => a.number - b.number);
+                
+                // Make sure count reflects the highest number
+                const highestNumber = day.coloredSquares[day.coloredSquares.length - 1].number;
+                if (day.count < highestNumber) {
+                    day.count = highestNumber;
+                }
+            }
+        });
+        
+        // Save to local storage
         saveDataToLocalStorage();
     }
     
