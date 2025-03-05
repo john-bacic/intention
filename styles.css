@@ -208,7 +208,7 @@ h1 {
 }
 
 .square-animate {
-    animation: squareAppear 0.5s cubic-bezier(0.18, 1.65, 0.58, 0.9) forwards;
+    animation: squareAppear 0.3s cubic-bezier(0.18, 1.65, 0.58, 0.9) forwards;
 }
 
 @keyframes squareAppear {
@@ -216,11 +216,11 @@ h1 {
         transform: scale(0.2); 
         opacity: 0; 
     }
-    50% { 
+    40% { 
         transform: scale(1.1); 
         opacity: 1; 
     }
-    75% { 
+    70% { 
         transform: scale(0.95); 
         opacity: 1; 
     }
@@ -461,13 +461,13 @@ h1 {
 }
 
 .big-number-pulse {
-    animation: bigNumberPulse 0.5s ease-out;
+    animation: bigNumberPulse 0.3s ease-out;
     animation-delay: 0s; /* Ensure no delay */
 }
 
 @keyframes bigNumberPulse {
     0% { transform: scale(0.9); opacity: 0.8; }
-    50% { transform: scale(1.1); opacity: 1; }
+    40% { transform: scale(1.1); opacity: 1; }
     100% { transform: scale(1); opacity: 1; }
 }
 

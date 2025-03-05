@@ -50,6 +50,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let settings = { darkMode: false, displayMode: 'random' };
     let isAnimating = false;
     let bigModeAnimationTimeout = null;
+    // Queue for handling rapid clicks
+    let clickQueue = [];
+    let processingQueue = false;
     
     // Helper functions
     function generateMutedColor() {
@@ -682,19 +685,67 @@ document.addEventListener('DOMContentLoaded', function() {
         // Set count to match the next number we're adding
         currentDayData.count = nextNumber;
         
+        // Add click to queue rather than process immediately
+        clickQueue.push({
+            number: nextNumber,
+            color: color,
+            dayData: currentDayData
+        });
+        
+        // Process the queue if not already processing
+        if (!processingQueue) {
+            processClickQueue();
+        }
+        
+        // Apply a small scale animation to the button (for all modes)
+        countButton.classList.add('button-pressed');
+        setTimeout(() => {
+            countButton.classList.remove('button-pressed');
+        }, 150);
+    }
+    
+    // New function to process the click queue
+    function processClickQueue() {
+        // If queue is empty, stop processing
+        if (clickQueue.length === 0) {
+            processingQueue = false;
+            return;
+        }
+        
+        // Mark as processing
+        processingQueue = true;
+        
+        // Get the next click from the queue
+        const clickData = clickQueue.shift();
+        const { number, color, dayData } = clickData;
+        
         // Handle differently based on display mode
         if (settings.displayMode === 'big') {
             // Big mode - direct and simple approach
-            handleBigModeClick(nextNumber, color);
+            handleBigModeClick(number, color);
+            
+            // Check completion after processing the click
+            checkCompletionAndSave(dayData);
+            
+            // Process next item in queue with minimal delay
+            setTimeout(processClickQueue, 50);
         } else {
-            // Grid mode - only proceed if not animating
-            if (isAnimating) return;
+            // Grid mode - we'll process regardless of animation status
+            // Just set the flag to prevent direct clicks outside the queue
             isAnimating = true;
             
             // Handle grid mode click
-            handleGridModeClick(currentDayData, color);
+            handleGridModeClick(dayData, color);
+            
+            // Check completion after processing the click
+            checkCompletionAndSave(dayData);
+            
+            // processClickQueue will be called again when animation completes in colorSquareInGrid
         }
-        
+    }
+    
+    // Extracted completion check logic to a separate function
+    function checkCompletionAndSave(currentDayData) {
         // Check if we reached 100 for this day, mark as completed if so
         if (currentDayData.count >= 100) {
             currentDayData.completed = true;
@@ -711,12 +762,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Save progress to local storage
         saveProgress();
-        
-        // Apply a small scale animation to the button (for all modes)
-        countButton.classList.add('button-pressed');
-        setTimeout(() => {
-            countButton.classList.remove('button-pressed');
-        }, 150);
     }
     
     // Completely rewritten function for Big mode
@@ -804,7 +849,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Reset animation state
                 isAnimating = false;
-            }, 600); // Match this to the total animation duration
+                
+                // Continue processing the queue after animation completes
+                setTimeout(processClickQueue, 10);
+            }, 300); // Reduced from 600ms to 300ms for faster animations
         }
     }
     
