@@ -761,22 +761,21 @@ document.addEventListener('DOMContentLoaded', function() {
         if (settings.displayMode === 'big') {
             // Big mode - direct and simple approach
             handleBigModeClick(nextNumber, color);
-            
-            // Check completion after processing the click
-            checkCompletionAndSave(dayData);
-            
-            // Continue processing queue immediately
-            requestAnimationFrame(processClickQueue);
         } else {
-            // Grid mode
+            // Grid mode - instant processing just like Big mode
             handleGridModeClick(dayData, color, nextNumber);
-            
-            // Check completion after processing the click
-            checkCompletionAndSave(dayData);
-            
-            // Continue processing queue immediately
-            // This is key - we don't wait for animations to complete
-            requestAnimationFrame(processClickQueue);
+        }
+        
+        // Check completion after processing the click
+        checkCompletionAndSave(dayData);
+        
+        // Continue processing queue immediately for ALL modes
+        // This is key - we don't wait for animations to complete
+        if (clickQueue.length > 0) {
+            // Use setTimeout with 0 delay for better behavior with rapid clicks
+            setTimeout(processClickQueue, 0);
+        } else {
+            processingQueue = false;
         }
     }
     
@@ -790,8 +789,19 @@ document.addEventListener('DOMContentLoaded', function() {
             position = number - 1; // Position is 0-indexed
         }
         
-        // Always color the square immediately
-        colorSquareInGrid(position, number, color);
+        // Update the button color to match the latest square - match Big mode behavior
+        countButton.style.backgroundColor = color;
+        
+        // Always color the square immediately - NO ANIMATIONS at all
+        const squares = document.querySelectorAll('.square');
+        if (position < squares.length) {
+            const square = squares[position];
+            
+            // Set the color and number immediately - EXACTLY LIKE BIG MODE (no animations)
+            square.style.backgroundColor = color;
+            square.textContent = number;
+            square.classList.add('colored');
+        }
         
         // Add to colored squares list - this ensures data consistency
         const squareData = { 
@@ -802,34 +812,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         currentDayData.coloredSquares.push(squareData);
         
-        // Update the button color to match the latest square
-        countButton.style.backgroundColor = color;
-        
         // Update UI with minimal delay - this refreshes the progress bar
-        setTimeout(() => {
-            updateUI();
-        }, 10);
-    }
-    
-    // Renamed and simplified function for grid mode only
-    function colorSquareInGrid(position, number, color) {
-        const squares = document.querySelectorAll('.square');
-        if (position < squares.length) {
-            const square = squares[position];
-            
-            // Set the color and number immediately - NO ANIMATION
-            square.style.backgroundColor = color;
-            square.textContent = number;
-            square.classList.add('colored');
-            
-            // Just a tiny scale effect that doesn't delay processing
-            square.classList.add('square-animate');
-            
-            // Remove the animation class after a short time
-            setTimeout(() => {
-                square.classList.remove('square-animate');
-            }, 100);
-        }
+        // But don't let this delay the next number
+        requestAnimationFrame(updateUI);
     }
     
     function getAvailablePositions() {
