@@ -333,15 +333,20 @@ document.addEventListener('DOMContentLoaded', function() {
         // Get current day's data
         const currentDayData = dayData[currentDay - 1];
         
+        // Get the next available day for navigation
+        const nextAvailableDay = getNextAvailableDay();
+        
         // Update days
         days.forEach((day, index) => {
             const dayNumber = index + 1;
             const isCurrentDay = dayNumber === currentDay;
             const isDayCompleted = dayData[index].completed;
+            const isPastDay = dayNumber < currentDay;
+            const isAvailableDay = dayNumber <= nextAvailableDay;
             
-            // Reset day style
-            day.style.backgroundColor = '';
-            day.style.color = '';
+            // Reset all classes and styles
+            day.classList.remove('active', 'completed', 'past');
+            day.style.cursor = isAvailableDay || isDayCompleted ? 'pointer' : 'default';
             
             // Get the day label element
             const dayLabel = day.querySelector('.day-label');
@@ -353,18 +358,18 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (isCurrentDay) {
                 // Highlight current day
-                day.style.backgroundColor = '#E02B2B';
-                day.style.color = 'white';
-                day.style.textShadow = '1px 1px 2px #000000bb';
+                day.classList.add('active');
                 
                 // Show day label only for current day
                 if (dayLabel) {
                     dayLabel.style.opacity = '1';
                 }
-            } else if (dayNumber < currentDay || isDayCompleted) {
-                // Past days
-                day.style.backgroundColor = '#600000';
-                day.style.color = 'white';
+            } else if (isDayCompleted) {
+                // Completed days
+                day.classList.add('completed');
+            } else if (isPastDay) {
+                // Past days (not completed)
+                day.classList.add('past');
             }
         });
         
@@ -633,9 +638,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 const dayNumberElement = this.querySelector('.day-number');
                 const selectedDay = parseInt(dayNumberElement.textContent);
                 
-                if (selectedDay <= currentDay) {
+                // Get the index of the selected day (0-based)
+                const dayIndex = selectedDay - 1;
+                
+                // Check if the day is completed or is the next available day
+                const isDayCompleted = dayData[dayIndex].completed;
+                const nextAvailableDay = getNextAvailableDay();
+                const canNavigate = isDayCompleted || selectedDay <= nextAvailableDay;
+                
+                // Add a visual indication that the day is clickable
+                if (canNavigate) {
+                    this.style.cursor = 'pointer';
+                } else {
+                    this.style.cursor = 'not-allowed';
+                }
+                
+                if (canNavigate) {
                     currentDay = selectedDay;
                     updateUI();
+                    saveProgress(); // Save the current day selection
                 }
             });
             
@@ -646,9 +667,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 const dayNumberElement = this.querySelector('.day-number');
                 const selectedDay = parseInt(dayNumberElement.textContent);
                 
-                if (selectedDay <= currentDay) {
+                // Get the index of the selected day (0-based)
+                const dayIndex = selectedDay - 1;
+                
+                // Check if the day is completed or is the next available day
+                const isDayCompleted = dayData[dayIndex].completed;
+                const nextAvailableDay = getNextAvailableDay();
+                const canNavigate = isDayCompleted || selectedDay <= nextAvailableDay;
+                
+                if (canNavigate) {
                     currentDay = selectedDay;
                     updateUI();
+                    saveProgress(); // Save the current day selection
                 }
             });
         });
@@ -787,10 +817,11 @@ document.addEventListener('DOMContentLoaded', function() {
         countButton.disabled = isCurrentDayComplete;
         
         if (isCurrentDayComplete) {
-            // Update SVG to checkmark for completed state
+            // Replace the icon with the word "DONE"
             const plusIcon = countButton.querySelector('.plus-icon');
             if (plusIcon) {
-                plusIcon.innerHTML = '<path d="M25 55 L45 75 L75 30" stroke="white" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+                // Create text that says "DONE" instead of a checkmark
+                plusIcon.innerHTML = '<text x="50" y="55" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="Inconsolata, monospace" font-weight="bold" font-size="24">DONE</text>';
             }
             countButton.style.backgroundColor = '#555'; // Reset to default gray when completed
         } else {
@@ -1209,15 +1240,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     }
     
-    function moveToNextDay() {
+    function getNextAvailableDay() {
         // Find the next incomplete day
-        let nextDay = -1;
         for (let i = 0; i < dayData.length; i++) {
             if (!dayData[i].completed) {
-                nextDay = i + 1; // Convert to 1-based index
-                break;
+                return i + 1; // Convert to 1-based index
             }
         }
+        // If all days are completed, return the last day
+        return dayData.length;
+    }
+    
+    function moveToNextDay() {
+        // Find the next incomplete day
+        const nextDay = getNextAvailableDay();
         
         // If we found a next day, switch to it
         if (nextDay > 0) {

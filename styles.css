@@ -93,13 +93,14 @@ h1 {
     align-items: center;
     border-radius: 8px;
     font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.3s;
+    cursor: default; /* Default cursor */
+    transition: all 0.3s ease;
     color: #000000;
     position: relative;
     margin: 0 2px;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
+    box-shadow: none;
 }
 
 .day:active {
@@ -133,10 +134,11 @@ h1 {
 }
 
 .day.active {
-    background-color: #EF9C9C;
+    background-color: #FF0000; /* Bright red for current day */
     color: white;
     text-shadow: 1px 1px 2px #000;
-    
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .day.active .day-label {
@@ -146,9 +148,11 @@ h1 {
 }
 
 .day.completed {
-    background-color: #2E7D32;
+    background-color: #8B0000; /* Dark red for completed days */
     color: white;
     text-shadow: 1px 1px 2px #000;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .day.completed .day-label {
@@ -158,6 +162,9 @@ h1 {
 .day.past {
     color: white;
     text-shadow: 1px 1px 2px #000;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    background-color: #600000;
 }
 
 .day.past .day-label {
@@ -314,6 +321,10 @@ h1 {
     width: 60%;
     height: 60%;
     filter: drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.4));
+}
+
+.plus-icon path {
+    fill: white; /* You can change this color to anything you want */
 }
 
 #count-button:disabled {
