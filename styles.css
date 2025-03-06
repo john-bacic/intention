@@ -440,7 +440,7 @@ h1 {
 }
 
 .big-number-display {
-    font-size: 20rem;
+    font-size: 18rem;
     display: flex; /* Always visible */
     justify-content: center;
     align-items: center;
@@ -450,6 +450,7 @@ h1 {
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
     user-select: none;
     transition: color 0.3s ease;
+    letter-spacing: -.8rem;
 }
 
 .big-number-pulse {

@@ -564,7 +564,27 @@ document.addEventListener('DOMContentLoaded', function() {
         
         resetButton.addEventListener('click', function() {
             if (confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
+                // Save the current display mode settings before resetting
+                const currentSettings = { 
+                    darkMode: settings.darkMode, 
+                    displayMode: settings.displayMode 
+                };
+                
+                // Remove all data from localStorage
                 localStorage.removeItem(STORAGE_KEY);
+                
+                // Create new data with preserved settings
+                const newData = {
+                    dayData: [],
+                    currentDay: 1,
+                    userMotivation: '',
+                    settings: currentSettings
+                };
+                
+                // Save the new data with preserved settings
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+                
+                // Reload the page to apply changes
                 location.reload();
             }
         });
@@ -572,7 +592,27 @@ document.addEventListener('DOMContentLoaded', function() {
         resetButton.addEventListener('touchstart', function(e) {
             e.preventDefault(); // Prevent default to avoid delays
             if (confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
+                // Save the current display mode settings before resetting
+                const currentSettings = { 
+                    darkMode: settings.darkMode, 
+                    displayMode: settings.displayMode 
+                };
+                
+                // Remove all data from localStorage
                 localStorage.removeItem(STORAGE_KEY);
+                
+                // Create new data with preserved settings
+                const newData = {
+                    dayData: [],
+                    currentDay: 1,
+                    userMotivation: '',
+                    settings: currentSettings
+                };
+                
+                // Save the new data with preserved settings
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+                
+                // Reload the page to apply changes
                 location.reload();
             }
         });
@@ -1042,8 +1082,27 @@ document.addEventListener('DOMContentLoaded', function() {
         resetButton.textContent = 'Start New Challenge';
         resetButton.classList.add('reset-button');
         resetButton.addEventListener('click', () => {
-            // Reset challenge data
+            // Save the current display mode settings before resetting
+            const currentSettings = { 
+                darkMode: settings.darkMode, 
+                displayMode: settings.displayMode 
+            };
+            
+            // Remove all data from localStorage
             localStorage.removeItem(STORAGE_KEY);
+            
+            // Create new data with preserved settings
+            const newData = {
+                dayData: [],
+                currentDay: 1,
+                userMotivation: '',
+                settings: currentSettings
+            };
+            
+            // Save the new data with preserved settings
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+            
+            // Reload the page to apply changes
             location.reload();
         });
         
@@ -1151,10 +1210,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function moveToNextDay() {
+        // Find the next incomplete day
+        let nextDay = -1;
         for (let i = 0; i < dayData.length; i++) {
             if (!dayData[i].completed) {
-                currentDay = i + 1;
+                nextDay = i + 1; // Convert to 1-based index
                 break;
+            }
+        }
+        
+        // If we found a next day, switch to it
+        if (nextDay > 0) {
+            currentDay = nextDay;
+            
+            // Ensure the day data is properly initialized for a fresh start
+            const nextDayData = dayData[currentDay - 1];
+            
+            // Reset lastProcessedNumber to match the current count
+            // This ensures we start counting from the right place
+            lastProcessedNumber = nextDayData.count;
+            
+            // If this day hasn't been started yet (count is 0)
+            if (nextDayData.count === 0) {
+                // Make sure coloredSquares is initialized as an empty array
+                nextDayData.coloredSquares = [];
             }
         }
     }
@@ -1218,57 +1297,42 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update the button color
         countButton.style.backgroundColor = color;
         
-        // Get the big number display
+        // Get the big number display container
         const bigNumberDisplay = document.querySelector('.big-number-display');
         
-        // Create a temporary overlay number for the animation
-        const overlay = document.createElement('div');
-        overlay.className = 'big-number-overlay';
-        overlay.style.position = 'absolute';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100%';
-        overlay.style.height = '100%';
-        overlay.style.display = 'flex';
-        overlay.style.justifyContent = 'center';
-        overlay.style.alignItems = 'center';
-        overlay.style.fontSize = 'inherit';
-        overlay.style.color = color;
-        overlay.style.zIndex = '10';
-        overlay.style.pointerEvents = 'none';
-        overlay.textContent = number;
+        // First, completely remove any existing content
+        bigNumberDisplay.innerHTML = '';
+        
+        // Create a new element for the number
+        const newNumber = document.createElement('div');
+        newNumber.style.color = color;
+        newNumber.style.fontSize = 'inherit';
+        newNumber.style.display = 'flex';
+        newNumber.style.justifyContent = 'center';
+        newNumber.style.alignItems = 'center';
+        newNumber.style.width = '100%';
+        newNumber.style.height = '100%';
+        newNumber.textContent = number;
         
         // Set initial state for animation
-        overlay.style.opacity = '0';
-        overlay.style.transform = 'scale(0)';
+        newNumber.style.opacity = '0';
+        newNumber.style.transform = 'scale(0)';
         
-        // Add the overlay to the big number display
-        bigNumberDisplay.appendChild(overlay);
+        // Add the new number to the display
+        bigNumberDisplay.appendChild(newNumber);
         
         // Force reflow
-        void overlay.offsetWidth;
+        void newNumber.offsetWidth;
         
-        // Use custom animation with more dramatic effect
-        overlay.style.transition = 'transform 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49), opacity 0.4s ease';
-        overlay.style.transform = 'scale(1.1)';
-        overlay.style.opacity = '1';
+        // Apply animation
+        newNumber.style.transition = 'transform 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49), opacity 0.4s ease';
+        newNumber.style.transform = 'scale(1.1)';
+        newNumber.style.opacity = '1';
         
         // Remove the scaling after the animation completes
         setTimeout(() => {
-            overlay.style.transform = 'scale(1)';
+            newNumber.style.transform = 'scale(1)';
         }, 350);
-        
-        // After animation completes, update the actual display and remove overlay
-        setTimeout(() => {
-            // Update the number and color
-            bigNumberDisplay.textContent = number;
-            bigNumberDisplay.style.color = color;
-            
-            // Remove the overlay after updating the display
-            if (overlay.parentNode) {
-                overlay.parentNode.removeChild(overlay);
-            }
-        }, 450); // Animation duration
         
         // Apply a pulse animation to the entire counter for extra feedback
         bigNumberDisplay.style.transition = 'transform 0.3s ease';
