@@ -66,7 +66,7 @@ h1 {
     position: relative;
     margin-top: 40px;
     margin-bottom: 10px;
-    padding: 0 50px;
+    padding: 0 8px;
 }
 
 /* Adjust days container in standalone mode */
@@ -78,7 +78,7 @@ h1 {
     display: flex;
     justify-content: space-around;
     width: 100%;
-    max-width: 400px;
+    max-width: 500px;
     margin: 0 auto;
     padding: 10px 0;
 }
