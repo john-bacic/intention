@@ -114,6 +114,56 @@ document.addEventListener('DOMContentLoaded', function() {
         if (settings.displayMode === 'big') {
             squaresGrid.style.display = 'none';
             bigNumberDisplay.style.display = 'flex';
+            
+            // Clear the big number display
+            bigNumberDisplay.innerHTML = '';
+            
+            // Create the dots grid
+            const dotsGrid = createDotsGrid();
+            bigNumberDisplay.appendChild(dotsGrid);
+            
+            // Show the current count in big display
+            const currentDayData = dayData[currentDay - 1];
+            if (currentDayData.count > 0) {
+                // Create number element
+                const numberElement = document.createElement('div');
+                numberElement.style.color = currentDayData.coloredSquares.length > 0 ? 
+                    currentDayData.coloredSquares[currentDayData.coloredSquares.length - 1].color : '#e0e0e0';
+                numberElement.style.fontSize = 'inherit';
+                numberElement.style.display = 'flex';
+                numberElement.style.justifyContent = 'center';
+                numberElement.style.alignItems = 'center';
+                numberElement.style.width = '100%';
+                numberElement.style.height = '100%';
+                numberElement.style.position = 'relative';
+                numberElement.style.zIndex = '1';
+                numberElement.textContent = currentDayData.count;
+                
+                // Add the number element to the display
+                bigNumberDisplay.appendChild(numberElement);
+                
+                // Update the dots grid based on the current count
+                updateDots(currentDayData.count);
+            } else {
+                // Create number element for zero count
+                const numberElement = document.createElement('div');
+                numberElement.style.color = '#888';
+                numberElement.style.fontSize = 'inherit';
+                numberElement.style.display = 'flex';
+                numberElement.style.justifyContent = 'center';
+                numberElement.style.alignItems = 'center';
+                numberElement.style.width = '100%';
+                numberElement.style.height = '100%';
+                numberElement.style.position = 'relative';
+                numberElement.style.zIndex = '1';
+                numberElement.textContent = '0';
+                
+                // Add the number element to the display
+                bigNumberDisplay.appendChild(numberElement);
+                
+                // Ensure dots grid is visible even with zero count
+                updateDots(0);
+            }
         } else {
             squaresGrid.style.display = 'grid';
             bigNumberDisplay.style.display = 'none';
@@ -755,17 +805,54 @@ document.addEventListener('DOMContentLoaded', function() {
                         squaresGrid.style.display = 'none';
                         bigNumberDisplay.style.display = 'flex';
                         
+                        // Clear the big number display
+                        bigNumberDisplay.innerHTML = '';
+                        
+                        // Create the dots grid
+                        const dotsGrid = createDotsGrid();
+                        bigNumberDisplay.appendChild(dotsGrid);
+                        
                         // Show the current count in big display
                         const currentDayData = dayData[currentDay - 1];
                         if (currentDayData.count > 0) {
-                            bigNumberDisplay.textContent = currentDayData.count;
-                            if (currentDayData.coloredSquares.length > 0) {
-                                const lastColor = currentDayData.coloredSquares[currentDayData.coloredSquares.length - 1].color;
-                                bigNumberDisplay.style.color = lastColor;
-                            }
+                            // Create number element
+                            const numberElement = document.createElement('div');
+                            numberElement.style.color = currentDayData.coloredSquares.length > 0 ? 
+                                currentDayData.coloredSquares[currentDayData.coloredSquares.length - 1].color : '#e0e0e0';
+                            numberElement.style.fontSize = 'inherit';
+                            numberElement.style.display = 'flex';
+                            numberElement.style.justifyContent = 'center';
+                            numberElement.style.alignItems = 'center';
+                            numberElement.style.width = '100%';
+                            numberElement.style.height = '100%';
+                            numberElement.style.position = 'relative';
+                            numberElement.style.zIndex = '1';
+                            numberElement.textContent = currentDayData.count;
+                            
+                            // Add the number element to the display
+                            bigNumberDisplay.appendChild(numberElement);
+                            
+                            // Update the dots grid based on the current count
+                            updateDots(currentDayData.count);
+                            // Color is now applied directly to the numberElement, not needed here
                         } else {
-                            bigNumberDisplay.textContent = '0';
-                            bigNumberDisplay.style.color = '#888';
+                            // Create number element for zero count
+                            const numberElement = document.createElement('div');
+                            numberElement.style.color = '#888';
+                            numberElement.style.fontSize = 'inherit';
+                            numberElement.style.display = 'flex';
+                            numberElement.style.justifyContent = 'center';
+                            numberElement.style.alignItems = 'center';
+                            numberElement.style.width = '100%';
+                            numberElement.style.height = '100%';
+                            numberElement.style.position = 'relative';
+                            numberElement.style.zIndex = '1';
+                            numberElement.textContent = '0';
+                            
+                            // Add the number element to the display
+                            bigNumberDisplay.appendChild(numberElement);
+                            
+                            // No dots to update when count is 0
                         }
                     } else {
                         // Show grid for other modes
@@ -1328,6 +1415,45 @@ document.addEventListener('DOMContentLoaded', function() {
         saveProgress();
     }
     
+    // Function to create the dots grid for big number display
+    function createDotsGrid() {
+        const dotsGrid = document.createElement('div');
+        dotsGrid.className = 'dots-grid';
+        dotsGrid.id = 'dots-grid';
+        
+        // Create 10x10 grid (100 dots)
+        for (let i = 0; i < 100; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'dot';
+            dot.dataset.index = i;
+            dotsGrid.appendChild(dot);
+        }
+        
+        return dotsGrid;
+    }
+    
+    // Function to update dots based on current number
+    function updateDots(number) {
+        const dots = document.querySelectorAll('.dot');
+        
+        if (dots.length === 0) {
+            // If dots aren't found, the grid might not be created yet
+            return;
+        }
+        
+        // Reset all dots to inactive
+        dots.forEach(dot => {
+            dot.classList.remove('active');
+        });
+        
+        // Activate dots up to the current number
+        for (let i = 0; i < number; i++) {
+            if (dots[i]) {
+                dots[i].classList.add('active');
+            }
+        }
+    }
+
     // Completely rewritten function for Big mode
     function handleBigModeClick(number, color) {
         // Update the button color
@@ -1339,6 +1465,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // First, completely remove any existing content
         bigNumberDisplay.innerHTML = '';
         
+        // Create the dots grid
+        const dotsGrid = createDotsGrid();
+        bigNumberDisplay.appendChild(dotsGrid);
+        
         // Create a new element for the number
         const newNumber = document.createElement('div');
         newNumber.style.color = color;
@@ -1348,6 +1478,8 @@ document.addEventListener('DOMContentLoaded', function() {
         newNumber.style.alignItems = 'center';
         newNumber.style.width = '100%';
         newNumber.style.height = '100%';
+        newNumber.style.position = 'relative';
+        newNumber.style.zIndex = '1';
         newNumber.textContent = number;
         
         // Set initial state for animation
@@ -1376,6 +1508,9 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             bigNumberDisplay.style.transform = 'scale(1)';
         }, 300);
+        
+        // Update the dots grid based on the current number
+        updateDots(number);
         
         // Add this square to colored squares with a position for data consistency
         const position = number - 1;

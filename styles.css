@@ -370,6 +370,8 @@ h1 {
     transition: transform 0.3s;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
+    position: relative;
+    z-index: 1000;
 }
 
 .gear-icon:hover {
@@ -467,6 +469,8 @@ h1 {
     user-select: none;
     transition: color 0.3s ease;
     /* letter-spacing: -.8rem; */
+    position: relative;
+    z-index: 1; /* Ensure it's above the dots grid */
 }
 
 .big-number-pulse {
@@ -478,6 +482,38 @@ h1 {
     0% { transform: scale(0.9); opacity: 0.8; }
     40% { transform: scale(1.1); opacity: 1; }
     100% { transform: scale(1); opacity: 1; }
+}
+
+.dots-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    grid-template-rows: repeat(10, 1fr);
+    gap: 8px;
+    padding: 40px;
+    z-index: -1; /* Ensure it stays behind other elements */
+    pointer-events: none;
+    justify-items: center;
+    align-items: center;
+}
+
+.dot {
+    width: 4px;
+    height: 4px;
+    background-color: #4E4E4E;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+    opacity: 1; /* Ensure dots are visible by default */
+}
+
+.dot.active {
+    background-color: #fff;
+    box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
 }
 
 #reset-button {
