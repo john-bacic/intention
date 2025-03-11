@@ -83,6 +83,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let audioTriggerActive = false; // Flag to prevent double counting
     let lastAudioState = false; // false = silence, true = audio detected
     let audioStateChangeTimeout = null; // Timeout for audio state changes
+    let fullTranscript = ""; // Store the full transcript for phrase detection
+    let lastPhraseDetectionTime = 0; // To prevent duplicate triggers
     let userMotivation = '';
     let settings = { darkMode: false, displayMode: 'random' };
     let isAnimating = false;
@@ -1664,21 +1666,72 @@ document.addEventListener('DOMContentLoaded', function() {
             recognition = new SpeechRecognition();
             recognition.lang = 'en-US';
             recognition.continuous = true;
-            recognition.interimResults = false;
+            recognition.interimResults = true;
+            
+            // Reset transcript when starting
+            fullTranscript = "";
             
             // Add event listeners
             recognition.onresult = event => {
-                const result = event.results[event.results.length - 1][0].transcript.toLowerCase();
-                console.log('Voice recognition result:', result);
+                let interimTranscript = '';
                 
-                // Check for keywords
-                if (result.includes('count') || result.includes('plus') || result.includes('add')) {
-                    handleCountClickFromAudio();
+                // Process all results
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcriptPart = event.results[i][0].transcript.toLowerCase();
+                    
+                    if (event.results[i].isFinal) {
+                        fullTranscript += transcriptPart + ' ';
+                    } else {
+                        interimTranscript += transcriptPart;
+                    }
+                }
+                
+                // Combined transcript for detection
+                const combinedTranscript = fullTranscript + interimTranscript;
+                console.log('Voice recognition transcript:', combinedTranscript);
+                
+                // Get the user's motivation or phrase to detect
+                const motivationField = document.getElementById('user-sentence');
+                const motivationText = motivationField.value.trim().toLowerCase();
+                
+                // Cooldown to prevent multiple triggers in quick succession
+                const now = Date.now();
+                const triggerCooldown = 2000; // 2 seconds cooldown
+                
+                if (motivationText) {
+                    // If there's text in the motivation field, check for that phrase
+                    if (containsPhrase(combinedTranscript, motivationText) && now - lastPhraseDetectionTime > triggerCooldown) {
+                        console.log(`Detected phrase: "${motivationText}"`);
+                        lastPhraseDetectionTime = now;
+                        handleCountClickFromAudio();
+                    }
+                } else {
+                    // Default behavior - look for specific keywords
+                    if ((containsPhrase(combinedTranscript, 'count') || 
+                         containsWordFollowedByNumber(combinedTranscript) ||
+                         containsPhrase(combinedTranscript, 'plus') || 
+                         containsPhrase(combinedTranscript, 'add')) && 
+                        now - lastPhraseDetectionTime > triggerCooldown) {
+                        
+                        lastPhraseDetectionTime = now;
+                        handleCountClickFromAudio();
+                    }
                 }
             };
             
             recognition.onerror = event => {
                 console.error('Speech recognition error:', event.error);
+            };
+            
+            recognition.onend = () => {
+                // Restart recognition if it's still enabled
+                if (isVoiceEnabled) {
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        console.error('Error restarting speech recognition:', e);
+                    }
+                }
             };
             
             // Start recognition
@@ -1689,6 +1742,24 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error initializing voice recognition:', err);
             return false;
         }
+    }
+    
+    // Helper function to check if a transcript contains a phrase
+    function containsPhrase(transcript, phrase) {
+        // Use word boundary to detect the whole phrase
+        const regex = new RegExp(`\\b${escapeRegExp(phrase)}\\b`, 'i');
+        return regex.test(transcript);
+    }
+    
+    // Helper function to check if transcript contains a word followed by a number
+    function containsWordFollowedByNumber(transcript) {
+        // Match patterns like "count 1", "number 5", etc.
+        return /\b(count|number)\s+\d+\b/i.test(transcript);
+    }
+    
+    // Helper function to escape special characters for regex
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
     
     // Function to toggle voice recognition
@@ -1707,6 +1778,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 voiceToggle.classList.remove('active');
                 return;
             }
+            
+            // Reset transcript when starting
+            fullTranscript = "";
+            lastPhraseDetectionTime = 0;
             
             // Use the new function to completely reset and reinitialize audio system
             resetAudioSystem()
@@ -1884,6 +1959,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reset audio state tracking variables
         lastAudioState = false;
         audioTriggerActive = false;
+        fullTranscript = "";
+        lastPhraseDetectionTime = 0;
         
         // Cancel any animation frame
         if (animationId) {
