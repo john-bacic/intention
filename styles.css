@@ -201,7 +201,8 @@ h1 {
 
 .square {
     aspect-ratio: 1/1;
-    background-color: #1D1D1D;
+    /* background-color: #1D1D1D; */
+    border: 1px solid #43434377;
     border-radius: 10px;
     cursor: default;
     transition: background-color 0.2s;
