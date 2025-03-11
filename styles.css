@@ -854,8 +854,18 @@ html, body {
 
 #sensitivity-value {
     font-weight: bold;
-    width: 25px;
+    font-size: 32px;
+    /* min-width: 30px; */
+    padding: 0 12px;
     text-align: center;
+}
+.settings-group {
+    /* display: flex;
+    align-items: center; */
+    gap: 20px;
+    margin-top: 20px 0;
+    padding: 0 8px;
+    /* border-bottom: 1px solid #575757; */
 }
 
 .slider {

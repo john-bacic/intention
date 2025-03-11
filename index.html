@@ -26,10 +26,10 @@
             </g>
             </svg></div>
         <div class="settings-panel" id="settings-panel">
-            <h2>Settings</h2>
+            <!-- <h2>Settings</h2> -->
             <button id="reset-button">Reset Progress</button>
             <div class="settings-group">
-                <h3>Display Mode</h3>
+                <h3 style="margin-top:10px; color: grey;">Display Mode</h3>
                 <div class="radio-options">
                     <div class="radio-option">
                         <label for="display-random">
@@ -51,11 +51,13 @@
                     </div>
                 </div>
             </div>
+           
             <div class="settings-group">
-                <h3>Audio Sensitivity</h3>
+                <div><span id="sensitivity-value">5</span>Audio sensitivity</div> 
                 <div class="slider-container">
+                   
                     <input type="range" id="audio-sensitivity" min="1" max="10" value="5" step="1">
-                    <span id="sensitivity-value">5</span>
+                   
                 </div>
             </div>
         </div>
