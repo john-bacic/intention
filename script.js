@@ -80,6 +80,13 @@ document.addEventListener('DOMContentLoaded', function() {
     let processingQueue = false;
     // Track the last processed number for data consistency
     let lastProcessedNumber = 0;
+    // Voice recognition variables
+    let isVoiceEnabled = false;
+    let recognition = null;
+    let audioContext = null;
+    let analyser = null;
+    let microphone = null;
+    let animationId = null;
     
     // Helper functions
     function generateMutedColor() {
@@ -544,21 +551,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 square.style.opacity = '0';
                 square.style.transform = 'scale(0)';
                 
-                // Apply staggered animation with a small delay based on index
+                // Force reflow to ensure animation plays
+                void square.offsetWidth;
+                
+                // Use custom animation with more dramatic effect
+                square.style.transition = 'transform 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49), opacity 0.4s ease';
+                square.style.transform = 'scale(1.1)';
+                square.style.opacity = '1';
+                
+                // Remove the scaling after the animation completes
                 setTimeout(() => {
-                    // Force reflow to ensure animation plays
-                    void square.offsetWidth;
-                    
-                    // Use custom animation with more dramatic effect
-                    square.style.transition = 'transform 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49), opacity 0.4s ease';
-                    square.style.transform = 'scale(1.1)';
-                    square.style.opacity = '1';
-                    
-                    // Remove the scaling after the animation completes
-                    setTimeout(() => {
-                        square.style.transform = 'scale(1)';
-                    }, 350);
-                }, 20 * index); // 20ms delay between each square
+                    square.style.transform = 'scale(1)';
+                }, 350);
             }
         });
         
@@ -593,6 +597,21 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault(); // Prevent default to avoid delays
             handleCountClick();
         });
+        
+        // Voice toggle button event
+        const voiceToggle = document.getElementById('voice-toggle');
+        const audioVisualizer = document.getElementById('audio-visualizer');
+        
+        if (voiceToggle) {
+            voiceToggle.addEventListener('click', function() {
+                toggleVoiceRecognition();
+            });
+            
+            voiceToggle.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                toggleVoiceRecognition();
+            });
+        }
         
         // Settings panel toggle
         const settingsToggle = document.getElementById('settings-toggle');
@@ -970,7 +989,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const plusIcon = countButton.querySelector('.plus-icon');
         
         // Apply scale down effect to the button
-        countButton.style.transform = 'scale(0.8)';
+        countButton.style.transform = 'translateX(-50%) scale(0.8)';
         countButton.style.transition = 'transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
         
         // Also scale the icon for additional effect
@@ -981,14 +1000,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Return to normal after a short delay
         setTimeout(() => {
-            countButton.style.transform = 'scale(1.1)';
+            countButton.style.transform = 'translateX(-50%) scale(1.1)';
             if (plusIcon) {
                 plusIcon.style.transform = 'scale(1.1) rotate(5deg)';
             }
             
             // Final return to normal size
             setTimeout(() => {
-                countButton.style.transform = 'scale(1)';
+                countButton.style.transform = 'translateX(-50%) scale(1)';
                 countButton.style.transition = '';
                 if (plusIcon) {
                     plusIcon.style.transform = 'scale(1) rotate(0)';
@@ -1536,5 +1555,220 @@ document.addEventListener('DOMContentLoaded', function() {
         currentDayData.coloredSquares.push(squareData);
     }
 
+    // Function to initialize voice recognition
+    function initVoiceRecognition() {
+        // Check if the browser supports the Web Speech API
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            alert('Sorry, voice recognition is not supported in your browser.');
+            return false;
+        }
+        
+        // Initialize SpeechRecognition object
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        
+        // Configure recognition
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        
+        // Handle results
+        recognition.onresult = function(event) {
+            const current = event.resultIndex;
+            const transcript = event.results[current][0].transcript.trim().toLowerCase();
+            
+            // Process final results
+            if (event.results[current].isFinal) {
+                console.log('Voice input:', transcript);
+                
+                // Check for trigger words
+                const triggerWords = ['count', 'next', 'advance', 'plus', 'add', 'increment', 'up', 'go', 'more', 'one'];
+                const hasTriggerWord = triggerWords.some(word => transcript.includes(word));
+                
+                if (hasTriggerWord) {
+                    handleCountClick();
+                }
+            }
+        };
+        
+        // Handle errors
+        recognition.onerror = function(event) {
+            if (event.error === 'no-speech') {
+                console.log('No speech detected.');
+            } else {
+                console.error('Voice recognition error:', event.error);
+                if (event.error === 'not-allowed') {
+                    alert('Microphone access is required for voice control.');
+                    toggleVoiceRecognition(false);
+                }
+            }
+        };
+        
+        // Handle end of recognition
+        recognition.onend = function() {
+            // Restart recognition if it's still enabled
+            if (isVoiceEnabled) {
+                recognition.start();
+            }
+        };
+        
+        return true;
+    }
+    
+    // Function to initialize audio visualizer
+    function initAudioVisualizer() {
+        if (!audioContext) {
+            try {
+                // Create audio context
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioContext();
+                
+                // Get visualizer and its bars
+                const visualizer = document.getElementById('audio-visualizer');
+                const bars = visualizer.querySelectorAll('.bar');
+                
+                // Create analyser node
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                
+                // Request microphone access
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(stream => {
+                        // Connect microphone to analyser
+                        microphone = audioContext.createMediaStreamSource(stream);
+                        microphone.connect(analyser);
+                        
+                        // Start visualization
+                        visualizeAudio(bars);
+                    })
+                    .catch(err => {
+                        console.error('Error accessing microphone:', err);
+                        alert('Microphone access is required for voice control.');
+                        toggleVoiceRecognition(false);
+                    });
+            } catch (err) {
+                console.error('Web Audio API error:', err);
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    // Function to visualize audio
+    function visualizeAudio(bars) {
+        // Create data array
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        
+        // Function to render the visualization
+        function render() {
+            // Only continue if voice is enabled
+            if (!isVoiceEnabled) return;
+            
+            // Get frequency data
+            analyser.getByteFrequencyData(dataArray);
+            
+            // Calculate average frequency for each bar
+            for (let i = 0; i < bars.length; i++) {
+                // Get frequency data for this bar
+                const start = Math.floor(i * dataArray.length / bars.length);
+                const end = Math.floor((i + 1) * dataArray.length / bars.length);
+                let sum = 0;
+                
+                // Sum frequencies
+                for (let j = start; j < end; j++) {
+                    sum += dataArray[j];
+                }
+                
+                // Calculate average
+                const avg = sum / (end - start);
+                
+                // Map to bar height (5px to 40px)
+                const height = Math.max(5, Math.min(40, avg * 0.4));
+                
+                // Apply height to bar
+                bars[i].style.height = `${height}px`;
+            }
+            
+            // Request next frame
+            animationId = requestAnimationFrame(render);
+        }
+        
+        // Start visualization
+        render();
+    }
+    
+    // Function to toggle voice recognition
+    function toggleVoiceRecognition(force = null) {
+        const voiceToggle = document.getElementById('voice-toggle');
+        const audioVisualizer = document.getElementById('audio-visualizer');
+        const audioVisualizerSpacer = document.getElementById('audio-visualizer-spacer');
+        
+        // Set state based on force parameter or toggle current state
+        isVoiceEnabled = force !== null ? force : !isVoiceEnabled;
+        
+        if (isVoiceEnabled) {
+            // Initialize voice recognition if needed
+            if (!recognition && !initVoiceRecognition()) {
+                isVoiceEnabled = false;
+                return;
+            }
+            
+            // Initialize audio visualizer if needed
+            if (!audioContext && !initAudioVisualizer()) {
+                isVoiceEnabled = false;
+                return;
+            }
+            
+            // Start recognition
+            try {
+                recognition.start();
+                
+                // Update UI
+                voiceToggle.classList.add('active');
+                audioVisualizer.classList.add('active');
+                audioVisualizerSpacer.style.display = 'none';
+                
+                // Resume audio context if suspended
+                if (audioContext && audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+            } catch (err) {
+                console.error('Error starting voice recognition:', err);
+                isVoiceEnabled = false;
+            }
+        } else {
+            // Stop recognition
+            if (recognition) {
+                try {
+                    recognition.stop();
+                } catch (err) {
+                    console.error('Error stopping recognition:', err);
+                }
+            }
+            
+            // Update UI
+            voiceToggle.classList.remove('active');
+            audioVisualizer.classList.remove('active');
+            audioVisualizerSpacer.style.display = 'block';
+            
+            // Stop visualization
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            // Reset bar heights
+            const bars = audioVisualizer.querySelectorAll('.bar');
+            bars.forEach(bar => {
+                bar.style.height = '5px';
+            });
+            
+            // Suspend audio context to save resources
+            if (audioContext && audioContext.state === 'running') {
+                audioContext.suspend();
+            }
+        }
+    }
+    
     initializeApp();
 });
