@@ -994,6 +994,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     sensitivityValueElement.textContent = audioSensitivity;
                 }
             }
+            
+            // Add touch-specific improvements
+            sensitivitySlider.addEventListener('touchstart', function() {
+                this.classList.add('touch-active');
+            });
+            
+            sensitivitySlider.addEventListener('touchend', function() {
+                this.classList.remove('touch-active');
+            });
         }
     }
     

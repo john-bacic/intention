@@ -845,20 +845,22 @@ html, body {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin: 10px 0;
+    margin: 16px 0;
+    padding: 10px 0;
 }
 
 #audio-sensitivity {
     flex: 1;
+    margin: 0 5px;
 }
 
 #sensitivity-value {
     font-weight: bold;
     font-size: 32px;
-    /* min-width: 30px; */
     padding: 0 12px;
     text-align: center;
 }
+
 .settings-group {
     /* display: flex;
     align-items: center; */
@@ -872,28 +874,54 @@ html, body {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 6px;
+    height: 10px;
     background: #555;
     outline: none;
-    border-radius: 3px;
+    border-radius: 5px;
+    margin: 8px 0;
 }
 
 .slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 18px;
-    height: 18px;
+    width: 28px;
+    height: 28px;
     background: #E91E63;
     border-radius: 50%;
     cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .slider::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
+    width: 28px;
+    height: 28px;
     background: #E91E63;
     border-radius: 50%;
     cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    border: none; /* Remove default border in Firefox */
+}
+
+/* Add touch-specific optimizations */
+@media (pointer: coarse) {
+    .slider::-webkit-slider-thumb {
+        width: 34px;
+        height: 34px;
+    }
+    
+    .slider::-moz-range-thumb {
+        width: 34px;
+        height: 34px;
+    }
+    
+    .slider {
+        height: 12px;
+        margin: 12px 0;
+    }
+    
+    .slider-container {
+        padding: 15px 0;
+    }
 }
 
 .slider-labels {
@@ -903,4 +931,14 @@ html, body {
     font-size: 12px;
     color: #aaa;
     margin-top: 5px;
+}
+
+.slider.touch-active::-webkit-slider-thumb {
+    transform: scale(1.1);
+    background: #ff4081;
+}
+
+.slider.touch-active::-moz-range-thumb {
+    transform: scale(1.1);
+    background: #ff4081;
 }
