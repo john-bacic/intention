@@ -1594,169 +1594,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to initialize voice recognition
     function initVoiceRecognition() {
-        // Check if the browser supports the Web Speech API
-        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-            alert('Sorry, voice recognition is not supported in your browser.');
-            return false;
-        }
-        
-        // Initialize SpeechRecognition object
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        recognition = new SpeechRecognition();
-        
-        // Configure recognition
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-        
-        // Handle results
-        recognition.onresult = function(event) {
-            const current = event.resultIndex;
-            const transcript = event.results[current][0].transcript.trim().toLowerCase();
-            
-            // Process final results
-            if (event.results[current].isFinal) {
-                console.log('Voice input:', transcript);
-                
-                // Check for trigger words
-                const triggerWords = ['count', 'next', 'advance', 'plus', 'add', 'increment', 'up', 'go', 'more', 'one'];
-                const hasTriggerWord = triggerWords.some(word => transcript.includes(word));
-                
-                if (hasTriggerWord) {
-                    handleCountClickFromAudio();
-                }
-            }
-        };
-        
-        // Handle errors
-        recognition.onerror = function(event) {
-            if (event.error === 'no-speech') {
-                console.log('No speech detected.');
-            } else {
-                console.error('Voice recognition error:', event.error);
-                if (event.error === 'not-allowed') {
-                    alert('Microphone access is required for voice control.');
-                    toggleVoiceRecognition(false);
-                }
-            }
-        };
-        
-        // Handle end of recognition
-        recognition.onend = function() {
-            // Restart recognition if it's still enabled
-            if (isVoiceEnabled) {
-                recognition.start();
-            }
-        };
-        
-        return true;
-    }
-    
-    // Function to initialize audio visualizer
-    function initAudioVisualizer() {
-        if (!audioContext) {
-            try {
-                // Create audio context
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                audioContext = new AudioContext();
-                
-                // Get visualizer and its bars
-                const visualizer = document.getElementById('audio-visualizer');
-                const bars = visualizer.querySelectorAll('.bar');
-                
-                // Create analyser node
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 256;
-                
-                // Request microphone access
-                navigator.mediaDevices.getUserMedia({ audio: true })
-                    .then(stream => {
-                        // Store the stream for proper cleanup
-                        microphoneStream = stream;
-                        
-                        // Connect microphone to analyser
-                        microphone = audioContext.createMediaStreamSource(stream);
-                        microphone.connect(analyser);
-                        
-                        // Start visualization
-                        visualizeAudio(bars);
-                    })
-                    .catch(err => {
-                        console.error('Error accessing microphone:', err);
-                        alert('Microphone access is required for voice control.');
-                        toggleVoiceRecognition(false);
-                    });
-            } catch (err) {
-                console.error('Web Audio API error:', err);
+        try {
+            // Check if SpeechRecognition is supported
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                console.error('Speech recognition not supported in this browser.');
+                alert('Speech recognition is not supported in your browser.');
                 return false;
             }
-        }
-        return true;
-    }
-    
-    // Function to visualize audio
-    function visualizeAudio(bars) {
-        // Create data array
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        
-        // Variables for audio-triggered counting
-        let lastTriggerTime = 0;
-        const triggerCooldown = 1000; // 1 second cooldown between triggers to prevent rapid counting
-        
-        // Function to render the visualization
-        function render() {
-            // Only continue if voice is enabled
-            if (!isVoiceEnabled) return;
             
-            // Get frequency data
-            analyser.getByteFrequencyData(dataArray);
+            // Create recognition instance
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.continuous = true;
+            recognition.interimResults = false;
             
-            // Calculate average frequency for each bar
-            for (let i = 0; i < bars.length; i++) {
-                // Get frequency data for this bar
-                const start = Math.floor(i * dataArray.length / bars.length);
-                const end = Math.floor((i + 1) * dataArray.length / bars.length);
-                let sum = 0;
+            // Add event listeners
+            recognition.onresult = event => {
+                const result = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                console.log('Voice recognition result:', result);
                 
-                // Sum frequencies
-                for (let j = start; j < end; j++) {
-                    sum += dataArray[j];
+                // Check for keywords
+                if (result.includes('count') || result.includes('plus') || result.includes('add')) {
+                    handleCountClickFromAudio();
                 }
-                
-                // Calculate average
-                const avg = sum / (end - start);
-                
-                // Map to bar height (5px to 40px)
-                const height = Math.max(5, Math.min(40, avg * 0.4));
-                
-                // Apply height to bar
-                bars[i].style.height = `${height}px`;
-                
-                // If this is the first bar and it reaches the sensitivity threshold, trigger the count button
-                if (i === 0 && height >= audioSensitivity) {
-                    const now = Date.now();
-                    if (now - lastTriggerTime > triggerCooldown && !audioTriggerActive) {
-                        lastTriggerTime = now;
-                        audioTriggerActive = true;
-                        
-                        // Trigger the count button (with short timeout to prevent double counting)
-                        setTimeout(() => {
-                            handleCountClickFromAudio();
-                            // Reset the flag after a short delay
-                            setTimeout(() => {
-                                audioTriggerActive = false;
-                            }, 200);
-                        }, 10);
-                    }
-                }
-            }
+            };
             
-            // Request next frame
-            animationId = requestAnimationFrame(render);
+            recognition.onerror = event => {
+                console.error('Speech recognition error:', event.error);
+            };
+            
+            // Start recognition
+            recognition.start();
+            
+            return true;
+        } catch (err) {
+            console.error('Error initializing voice recognition:', err);
+            return false;
         }
-        
-        // Start visualization
-        render();
     }
     
     // Function to toggle voice recognition
@@ -1776,27 +1651,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Force reinitialize audio visualizer to ensure it works when toggled back on
-            // First clean up any existing audio resources
-            if (microphone) {
-                microphone.disconnect();
-                microphone = null;
-            }
-            
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-                animationId = null;
-            }
-            
-            // Reinitialize the audio visualizer
-            initAudioVisualizer();
-            
-            // Show visualizer
-            audioVisualizer.style.display = 'flex';
-            audioVisualizerSpacer.style.display = 'block';
-            
-            // Update button style
-            voiceToggle.classList.add('active');
+            // Use the new function to completely reset and reinitialize audio system
+            resetAudioSystem()
+                .then(success => {
+                    if (success) {
+                        // Show visualizer
+                        audioVisualizer.style.display = 'flex';
+                        audioVisualizerSpacer.style.display = 'block';
+                        
+                        // Update button style
+                        voiceToggle.classList.add('active');
+                    } else {
+                        isVoiceEnabled = false;
+                        voiceToggle.classList.remove('active');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error resetting audio system:', err);
+                    isVoiceEnabled = false;
+                    voiceToggle.classList.remove('active');
+                });
         } else {
             // Hide visualizer
             audioVisualizer.style.display = 'none';
@@ -1841,6 +1715,133 @@ document.addEventListener('DOMContentLoaded', function() {
         audioSensitivity = parseInt(event.target.value);
         // Save to local storage
         localStorage.setItem('audioSensitivity', audioSensitivity);
+    }
+    
+    // Function to visualize audio
+    function visualizeAudio(bars) {
+        // Create data array
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        
+        // Variables for audio-triggered counting
+        let lastTriggerTime = 0;
+        const triggerCooldown = 1000; // 1 second cooldown between triggers to prevent rapid counting
+        
+        // Function to render the visualization
+        function render() {
+            // Only continue if voice is enabled
+            if (!isVoiceEnabled) return;
+            
+            // Get frequency data
+            analyser.getByteFrequencyData(dataArray);
+            
+            // Calculate average frequency for each bar
+            for (let i = 0; i < bars.length; i++) {
+                // Get frequency data for this bar
+                const start = Math.floor(i * dataArray.length / bars.length);
+                const end = Math.floor((i + 1) * dataArray.length / bars.length);
+                let sum = 0;
+                
+                // Sum frequencies
+                for (let j = start; j < end; j++) {
+                    sum += dataArray[j];
+                }
+                
+                // Calculate average
+                const avg = sum / (end - start);
+                
+                // Map to bar height (5px to 40px)
+                const height = Math.max(5, Math.min(40, avg * 0.4));
+                
+                // Apply height to bar
+                bars[i].style.height = `${height}px`;
+                
+                // If this is the first bar and it reaches the sensitivity threshold, trigger the count button
+                // Only trigger if it's the first bar (i === 0) to prevent double counting
+                if (i === 0 && height >= audioSensitivity && !audioTriggerActive) {
+                    const now = Date.now();
+                    if (now - lastTriggerTime > triggerCooldown) {
+                        lastTriggerTime = now;
+                        audioTriggerActive = true;
+                        
+                        // Trigger the count button (with short timeout to prevent double counting)
+                        setTimeout(() => {
+                            handleCountClickFromAudio();
+                            // Reset the flag after a short delay
+                            setTimeout(() => {
+                                audioTriggerActive = false;
+                            }, 200);
+                        }, 10);
+                    }
+                }
+            }
+            
+            // Request next frame
+            animationId = requestAnimationFrame(render);
+        }
+        
+        // Start visualization
+        render();
+    }
+    
+    // Function to reset and reinitialize audio system
+    function resetAudioSystem() {
+        // Cancel any animation frame
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+        
+        // Disconnect microphone
+        if (microphone) {
+            microphone.disconnect();
+            microphone = null;
+        }
+        
+        // Stop all tracks in the microphone stream
+        if (microphoneStream) {
+            microphoneStream.getTracks().forEach(track => {
+                track.stop();
+            });
+            microphoneStream = null;
+        }
+        
+        // Close the audio context
+        if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+            analyser = null;
+        }
+        
+        // Create a new audio context
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Get visualizer and its bars
+        const visualizer = document.getElementById('audio-visualizer');
+        const bars = visualizer.querySelectorAll('.bar');
+        
+        // Create analyser node
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        
+        // Request microphone access
+        return navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                // Store the stream for proper cleanup
+                microphoneStream = stream;
+                
+                // Connect microphone to analyser
+                microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+                
+                // Start visualization
+                visualizeAudio(bars);
+                
+                return true;
+            })
+            .catch(err => {
+                console.error('Error accessing microphone:', err);
+                return false;
+            });
     }
     
     initializeApp();
