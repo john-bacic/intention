@@ -769,6 +769,7 @@ h1 {
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     outline: none;
+    margin-bottom: 15px;
 }
 
 #reset-button:hover {
