@@ -80,6 +80,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let microphoneStream = null; // Store the stream to properly close it
     let animationId = null;
     let audioSensitivity = 20; // Default sensitivity threshold (matches initial slider value)
+    let audioTriggerActive = false; // Flag to prevent double counting
     let userMotivation = '';
     let settings = { darkMode: false, displayMode: 'random' };
     let isAnimating = false;
@@ -1734,10 +1735,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 // If this is the first bar and it reaches the sensitivity threshold, trigger the count button
                 if (i === 0 && height >= audioSensitivity) {
                     const now = Date.now();
-                    if (now - lastTriggerTime > triggerCooldown) {
+                    if (now - lastTriggerTime > triggerCooldown && !audioTriggerActive) {
                         lastTriggerTime = now;
-                        // Trigger the count button
-                        handleCountClickFromAudio();
+                        audioTriggerActive = true;
+                        
+                        // Trigger the count button (with short timeout to prevent double counting)
+                        setTimeout(() => {
+                            handleCountClickFromAudio();
+                            // Reset the flag after a short delay
+                            setTimeout(() => {
+                                audioTriggerActive = false;
+                            }, 200);
+                        }, 10);
                     }
                 }
             }
@@ -1767,23 +1776,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Initialize audio visualizer if needed
-            if (!audioContext && !initAudioVisualizer()) {
-                isVoiceEnabled = false;
-                voiceToggle.classList.remove('active');
-                return;
+            // Force reinitialize audio visualizer to ensure it works when toggled back on
+            // First clean up any existing audio resources
+            if (microphone) {
+                microphone.disconnect();
+                microphone = null;
             }
             
-            // Resume audio context if suspended
-            if (audioContext && audioContext.state === 'suspended') {
-                audioContext.resume();
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
             }
             
-            // Start visualization if needed
-            if (!animationId && audioContext && analyser) {
-                const bars = audioVisualizer.querySelectorAll('.bar');
-                visualizeAudio(bars);
-            }
+            // Reinitialize the audio visualizer
+            initAudioVisualizer();
             
             // Show visualizer
             audioVisualizer.style.display = 'flex';
