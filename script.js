@@ -513,7 +513,7 @@ document.addEventListener('DOMContentLoaded', function() {
         for (const missingNum of missingNumbers) {
             // Get a position that's not used yet
             let availablePositions = [];
-            for (let i = 0; i < 100; i++) {
+            for (let i = 0; i < squares.length; i++) {
                 if (!sortedSquares.some(square => square.position === i)) {
                     availablePositions.push(i);
                 }
@@ -1555,6 +1555,31 @@ document.addEventListener('DOMContentLoaded', function() {
         currentDayData.coloredSquares.push(squareData);
     }
 
+    // Function to handle count clicks triggered by audio without animation conflicts
+    function handleCountClickFromAudio() {
+        // Get current day data
+        const currentDayData = dayData[currentDay - 1];
+        
+        // If day already completed or already at 100, don't do anything
+        if (currentDayData.completed || currentDayData.count >= 100) {
+            return;
+        }
+        
+        // Generate a muted color for the square
+        const color = generateMutedColor();
+        
+        // Add click to queue with minimal data
+        clickQueue.push({
+            color: color,
+            dayData: currentDayData
+        });
+        
+        // Process the queue if not already processing
+        if (!processingQueue) {
+            processClickQueue();
+        }
+    }
+
     // Function to initialize voice recognition
     function initVoiceRecognition() {
         // Check if the browser supports the Web Speech API
@@ -1586,7 +1611,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const hasTriggerWord = triggerWords.some(word => transcript.includes(word));
                 
                 if (hasTriggerWord) {
-                    handleCountClick();
+                    handleCountClickFromAudio();
                 }
             }
         };
@@ -1659,6 +1684,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Create data array
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
         
+        // Variables for audio-triggered counting
+        let lastTriggerTime = 0;
+        const triggerCooldown = 1000; // 1 second cooldown between triggers to prevent rapid counting
+        
         // Function to render the visualization
         function render() {
             // Only continue if voice is enabled
@@ -1687,6 +1716,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Apply height to bar
                 bars[i].style.height = `${height}px`;
+                
+                // If this is the first bar and it reaches 50% height (20px), trigger the count button
+                if (i === 0 && height >= 20) {
+                    const now = Date.now();
+                    if (now - lastTriggerTime > triggerCooldown) {
+                        lastTriggerTime = now;
+                        // Trigger the count button
+                        handleCountClickFromAudio();
+                    }
+                }
             }
             
             // Request next frame
@@ -1766,6 +1805,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Suspend audio context to save resources
             if (audioContext && audioContext.state === 'running') {
                 audioContext.suspend();
+            }
+            
+            // Disconnect microphone to fully stop audio input
+            if (microphone) {
+                microphone.disconnect();
+                microphone = null;
             }
         }
     }
