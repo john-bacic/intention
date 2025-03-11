@@ -81,6 +81,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let animationId = null;
     let audioSensitivity = 20; // Default sensitivity threshold (matches initial slider value)
     let audioTriggerActive = false; // Flag to prevent double counting
+    let lastAudioState = false; // false = silence, true = audio detected
+    let audioStateChangeTimeout = null; // Timeout for audio state changes
     let userMotivation = '';
     let settings = { darkMode: false, displayMode: 'random' };
     let isAnimating = false;
@@ -100,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
     }
     
-    // Initialize the app
+    // Function to initialize the app
     function initializeApp() {
         // Load data or initialize fresh
         loadProgress();
@@ -174,6 +176,33 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             squaresGrid.style.display = 'grid';
             bigNumberDisplay.style.display = 'none';
+        }
+        
+        // Load dark mode setting from localStorage
+        const savedDarkMode = localStorage.getItem('darkMode');
+        if (savedDarkMode) {
+            settings.darkMode = JSON.parse(savedDarkMode);
+            if (settings.darkMode) {
+                document.body.classList.add('dark-mode');
+                document.getElementById('dark-mode-toggle').classList.add('active');
+            }
+        }
+        
+        // Load saved audio sensitivity
+        const savedSensitivity = localStorage.getItem('audioSensitivity');
+        if (savedSensitivity) {
+            audioSensitivity = parseInt(savedSensitivity);
+            const sensitivitySlider = document.getElementById('audio-sensitivity');
+            if (sensitivitySlider) {
+                sensitivitySlider.value = audioSensitivity;
+                
+                // Update the displayed value (0-10 scale)
+                const sensitivityValueElement = document.getElementById('sensitivity-value');
+                if (sensitivityValueElement) {
+                    const displayValue = Math.round((audioSensitivity - 5) / 4.5);
+                    sensitivityValueElement.textContent = displayValue;
+                }
+            }
         }
     }
     
@@ -931,10 +960,40 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
+        // Display mode toggle
+        const displayModeToggle = document.getElementById('display-mode-toggle');
+        
+        if (displayModeToggle) {
+            displayModeToggle.addEventListener('click', function() {
+                // Toggle between 'random' and 'big' modes
+                settings.displayMode = settings.displayMode === 'random' ? 'big' : 'random';
+                
+                // Save setting to localStorage
+                localStorage.setItem('displayMode', JSON.stringify(settings.displayMode));
+                
+                // Update UI
+                updateUI();
+            });
+        }
+        
         // Audio sensitivity slider
-        const audioSensitivitySlider = document.getElementById('audio-sensitivity');
-        if (audioSensitivitySlider) {
-            audioSensitivitySlider.addEventListener('input', handleSensitivityChange);
+        const sensitivitySlider = document.getElementById('audio-sensitivity');
+        if (sensitivitySlider) {
+            sensitivitySlider.addEventListener('input', handleSensitivityChange);
+            
+            // Initialize display value
+            const savedSensitivity = localStorage.getItem('audioSensitivity');
+            if (savedSensitivity) {
+                audioSensitivity = parseInt(savedSensitivity);
+                sensitivitySlider.value = audioSensitivity;
+                
+                // Update the displayed value (0-10 scale)
+                const sensitivityValueElement = document.getElementById('sensitivity-value');
+                if (sensitivityValueElement) {
+                    const displayValue = Math.round((audioSensitivity - 5) / 4.5);
+                    sensitivityValueElement.textContent = displayValue;
+                }
+            }
         }
     }
     
@@ -1713,6 +1772,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to handle sensitivity change
     function handleSensitivityChange(event) {
         audioSensitivity = parseInt(event.target.value);
+        
+        // Convert from 5-50 range to 0-10 scale for display
+        const sensitivityValueElement = document.getElementById('sensitivity-value');
+        const displayValue = Math.round((audioSensitivity - 5) / 4.5);
+        sensitivityValueElement.textContent = displayValue;
+        
         // Save to local storage
         localStorage.setItem('audioSensitivity', audioSensitivity);
     }
@@ -1734,7 +1799,47 @@ document.addEventListener('DOMContentLoaded', function() {
             // Get frequency data
             analyser.getByteFrequencyData(dataArray);
             
-            // Calculate average frequency for each bar
+            // First, calculate the first bar's height for audio state detection
+            const firstBarStart = Math.floor(0 * dataArray.length / bars.length);
+            const firstBarEnd = Math.floor(1 * dataArray.length / bars.length);
+            let firstBarSum = 0;
+            
+            // Sum frequencies for first bar
+            for (let j = firstBarStart; j < firstBarEnd; j++) {
+                firstBarSum += dataArray[j];
+            }
+            
+            // Calculate average for first bar
+            const firstBarAvg = firstBarSum / (firstBarEnd - firstBarStart);
+            
+            // Map to height (5px to 40px)
+            const firstBarHeight = Math.max(5, Math.min(40, firstBarAvg * 0.4));
+            
+            // Determine current audio state based on the height and sensitivity
+            const currentAudioState = firstBarHeight >= audioSensitivity;
+            
+            // Detect transition from silence to audio (instead of continuous audio detection)
+            if (!lastAudioState && currentAudioState && !audioTriggerActive) {
+                const now = Date.now();
+                if (now - lastTriggerTime > triggerCooldown) {
+                    lastTriggerTime = now;
+                    audioTriggerActive = true;
+                    
+                    // Trigger the count button when we go from silence to audio
+                    setTimeout(() => {
+                        handleCountClickFromAudio();
+                        // Reset the flag after a short delay
+                        setTimeout(() => {
+                            audioTriggerActive = false;
+                        }, 200);
+                    }, 10);
+                }
+            }
+            
+            // Update last audio state for next comparison
+            lastAudioState = currentAudioState;
+            
+            // Calculate average frequency for each bar for visualization
             for (let i = 0; i < bars.length; i++) {
                 // Get frequency data for this bar
                 const start = Math.floor(i * dataArray.length / bars.length);
@@ -1754,25 +1859,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Apply height to bar
                 bars[i].style.height = `${height}px`;
-                
-                // If this is the first bar and it reaches the sensitivity threshold, trigger the count button
-                // Only trigger if it's the first bar (i === 0) to prevent double counting
-                if (i === 0 && height >= audioSensitivity && !audioTriggerActive) {
-                    const now = Date.now();
-                    if (now - lastTriggerTime > triggerCooldown) {
-                        lastTriggerTime = now;
-                        audioTriggerActive = true;
-                        
-                        // Trigger the count button (with short timeout to prevent double counting)
-                        setTimeout(() => {
-                            handleCountClickFromAudio();
-                            // Reset the flag after a short delay
-                            setTimeout(() => {
-                                audioTriggerActive = false;
-                            }, 200);
-                        }, 10);
-                    }
-                }
             }
             
             // Request next frame
@@ -1785,6 +1871,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to reset and reinitialize audio system
     function resetAudioSystem() {
+        // Reset audio state tracking variables
+        lastAudioState = false;
+        audioTriggerActive = false;
+        
         // Cancel any animation frame
         if (animationId) {
             cancelAnimationFrame(animationId);

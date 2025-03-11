@@ -841,8 +841,20 @@ html, body {
 
 /* Audio Sensitivity Slider */
 .slider-container {
-    width: 100%;
-    margin: 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+#audio-sensitivity {
+    flex: 1;
+}
+
+#sensitivity-value {
+    font-weight: bold;
+    width: 25px;
+    text-align: center;
 }
 
 .slider {
