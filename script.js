@@ -67,26 +67,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const squaresGrid = document.getElementById('squares-grid');
     const days = document.querySelectorAll('.day');
     
-    // App state
+    // Global variables
     let currentDay = 1;
-    let currentCount = 0;
-    let userMotivation = '';
     let dayData = [];
-    let settings = { darkMode: false, displayMode: 'random' };
-    let isAnimating = false;
-    let bigModeAnimationTimeout = null;
-    // Queue for handling rapid clicks
     let clickQueue = [];
     let processingQueue = false;
-    // Track the last processed number for data consistency
-    let lastProcessedNumber = 0;
-    // Voice recognition variables
     let isVoiceEnabled = false;
     let recognition = null;
     let audioContext = null;
     let analyser = null;
     let microphone = null;
+    let microphoneStream = null; // Store the stream to properly close it
     let animationId = null;
+    let audioSensitivity = 20; // Default sensitivity threshold (matches initial slider value)
+    let userMotivation = '';
+    let settings = { darkMode: false, displayMode: 'random' };
+    let isAnimating = false;
+    let bigModeAnimationTimeout = null;
+    // Track the last processed number for data consistency
+    let lastProcessedNumber = 0;
     
     // Helper functions
     function generateMutedColor() {
@@ -357,6 +356,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 userSentence.value = `"${userMotivation}"`;
             }
             
+            // Load audio sensitivity setting
+            const savedSensitivity = localStorage.getItem('audioSensitivity');
+            if (savedSensitivity) {
+                audioSensitivity = parseInt(savedSensitivity);
+                document.getElementById('audio-sensitivity').value = audioSensitivity;
+            }
         } catch (error) {
             // Catch any other errors that might occur
             console.error('Error in loadProgress:', error);
@@ -924,6 +929,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
+        
+        // Audio sensitivity slider
+        const audioSensitivitySlider = document.getElementById('audio-sensitivity');
+        if (audioSensitivitySlider) {
+            audioSensitivitySlider.addEventListener('input', handleSensitivityChange);
+        }
     }
     
     function updateButtonAppearance() {
@@ -1659,6 +1670,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Request microphone access
                 navigator.mediaDevices.getUserMedia({ audio: true })
                     .then(stream => {
+                        // Store the stream for proper cleanup
+                        microphoneStream = stream;
+                        
                         // Connect microphone to analyser
                         microphone = audioContext.createMediaStreamSource(stream);
                         microphone.connect(analyser);
@@ -1717,8 +1731,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Apply height to bar
                 bars[i].style.height = `${height}px`;
                 
-                // If this is the first bar and it reaches 50% height (20px), trigger the count button
-                if (i === 0 && height >= 20) {
+                // If this is the first bar and it reaches the sensitivity threshold, trigger the count button
+                if (i === 0 && height >= audioSensitivity) {
                     const now = Date.now();
                     if (now - lastTriggerTime > triggerCooldown) {
                         lastTriggerTime = now;
@@ -1749,60 +1763,48 @@ document.addEventListener('DOMContentLoaded', function() {
             // Initialize voice recognition if needed
             if (!recognition && !initVoiceRecognition()) {
                 isVoiceEnabled = false;
+                voiceToggle.classList.remove('active');
                 return;
             }
             
             // Initialize audio visualizer if needed
             if (!audioContext && !initAudioVisualizer()) {
                 isVoiceEnabled = false;
+                voiceToggle.classList.remove('active');
                 return;
             }
             
-            // Start recognition
-            try {
-                recognition.start();
-                
-                // Update UI
-                voiceToggle.classList.add('active');
-                audioVisualizer.classList.add('active');
-                audioVisualizerSpacer.style.display = 'none';
-                
-                // Resume audio context if suspended
-                if (audioContext && audioContext.state === 'suspended') {
-                    audioContext.resume();
-                }
-            } catch (err) {
-                console.error('Error starting voice recognition:', err);
-                isVoiceEnabled = false;
-            }
-        } else {
-            // Stop recognition
-            if (recognition) {
-                try {
-                    recognition.stop();
-                } catch (err) {
-                    console.error('Error stopping recognition:', err);
-                }
+            // Resume audio context if suspended
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
             }
             
-            // Update UI
-            voiceToggle.classList.remove('active');
-            audioVisualizer.classList.remove('active');
+            // Start visualization if needed
+            if (!animationId && audioContext && analyser) {
+                const bars = audioVisualizer.querySelectorAll('.bar');
+                visualizeAudio(bars);
+            }
+            
+            // Show visualizer
+            audioVisualizer.style.display = 'flex';
             audioVisualizerSpacer.style.display = 'block';
             
-            // Stop visualization
+            // Update button style
+            voiceToggle.classList.add('active');
+        } else {
+            // Hide visualizer
+            audioVisualizer.style.display = 'none';
+            audioVisualizerSpacer.style.display = 'none';
+            
+            // Update button style
+            voiceToggle.classList.remove('active');
+            
+            // Clean up audio resources
             if (animationId) {
                 cancelAnimationFrame(animationId);
                 animationId = null;
             }
             
-            // Reset bar heights
-            const bars = audioVisualizer.querySelectorAll('.bar');
-            bars.forEach(bar => {
-                bar.style.height = '5px';
-            });
-            
-            // Suspend audio context to save resources
             if (audioContext && audioContext.state === 'running') {
                 audioContext.suspend();
             }
@@ -1812,7 +1814,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 microphone.disconnect();
                 microphone = null;
             }
+            
+            // Stop all tracks in the microphone stream
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => {
+                    track.stop();
+                });
+                microphoneStream = null;
+            }
+            
+            // Stop recognition if it's running
+            if (recognition) {
+                recognition.stop();
+            }
         }
+    }
+    
+    // Function to handle sensitivity change
+    function handleSensitivityChange(event) {
+        audioSensitivity = parseInt(event.target.value);
+        // Save to local storage
+        localStorage.setItem('audioSensitivity', audioSensitivity);
     }
     
     initializeApp();
