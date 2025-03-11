@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let microphone = null;
     let microphoneStream = null; // Store the stream to properly close it
     let animationId = null;
-    let audioSensitivity = 20; // Default sensitivity threshold (matches initial slider value)
+    let audioSensitivity = 5; // Default sensitivity threshold (on 1-10 scale)
     let audioTriggerActive = false; // Flag to prevent double counting
     let lastAudioState = false; // false = silence, true = audio detected
     let audioStateChangeTimeout = null; // Timeout for audio state changes
@@ -199,8 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Update the displayed value (0-10 scale)
                 const sensitivityValueElement = document.getElementById('sensitivity-value');
                 if (sensitivityValueElement) {
-                    const displayValue = Math.round((audioSensitivity - 5) / 4.5);
-                    sensitivityValueElement.textContent = displayValue;
+                    sensitivityValueElement.textContent = audioSensitivity;
                 }
             }
         }
@@ -990,8 +989,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Update the displayed value (0-10 scale)
                 const sensitivityValueElement = document.getElementById('sensitivity-value');
                 if (sensitivityValueElement) {
-                    const displayValue = Math.round((audioSensitivity - 5) / 4.5);
-                    sensitivityValueElement.textContent = displayValue;
+                    sensitivityValueElement.textContent = audioSensitivity;
                 }
             }
         }
@@ -1771,12 +1769,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to handle sensitivity change
     function handleSensitivityChange(event) {
+        // Direct sensitivity value (1-10 scale)
         audioSensitivity = parseInt(event.target.value);
         
-        // Convert from 5-50 range to 0-10 scale for display
+        // Update the displayed value
         const sensitivityValueElement = document.getElementById('sensitivity-value');
-        const displayValue = Math.round((audioSensitivity - 5) / 4.5);
-        sensitivityValueElement.textContent = displayValue;
+        if (sensitivityValueElement) {
+            sensitivityValueElement.textContent = audioSensitivity;
+        }
         
         // Save to local storage
         localStorage.setItem('audioSensitivity', audioSensitivity);
@@ -1812,11 +1812,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // Calculate average for first bar
             const firstBarAvg = firstBarSum / (firstBarEnd - firstBarStart);
             
+            // Calculate sensitivity threshold based on user setting (1-10)
+            // Lower sensitivity (1) means higher threshold to detect sound (~25)
+            // Higher sensitivity (10) means lower threshold to detect sound (~5)
+            const detectionThreshold = 30 - (audioSensitivity * 2.5);
+            
             // Map to height (5px to 40px)
             const firstBarHeight = Math.max(5, Math.min(40, firstBarAvg * 0.4));
             
-            // Determine current audio state based on the height and sensitivity
-            const currentAudioState = firstBarHeight >= audioSensitivity;
+            // Determine current audio state based on the height and sensitivity threshold
+            const currentAudioState = firstBarHeight >= detectionThreshold;
             
             // Detect transition from silence to audio (instead of continuous audio detection)
             if (!lastAudioState && currentAudioState && !audioTriggerActive) {
@@ -1839,6 +1844,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update last audio state for next comparison
             lastAudioState = currentAudioState;
             
+            // Animation amplification factor based on sensitivity
+            // Higher sensitivity = more amplification of the visualizer
+            const amplificationFactor = 0.25 + (audioSensitivity * 0.075);
+            
             // Calculate average frequency for each bar for visualization
             for (let i = 0; i < bars.length; i++) {
                 // Get frequency data for this bar
@@ -1854,8 +1863,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Calculate average
                 const avg = sum / (end - start);
                 
-                // Map to bar height (5px to 40px)
-                const height = Math.max(5, Math.min(40, avg * 0.4));
+                // Map to bar height with amplification based on sensitivity
+                // More sensitive = more exaggerated movements
+                const height = Math.max(5, Math.min(40, avg * amplificationFactor));
                 
                 // Apply height to bar
                 bars[i].style.height = `${height}px`;
