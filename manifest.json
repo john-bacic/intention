@@ -4,8 +4,8 @@
   "description": "Count to 100 over seven days",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#121212",
-  "theme_color": "#121212",
+  "background_color": "#2C2C2C",
+  "theme_color": "#2C2C2C",
   "orientation": "portrait",
   "icons": [
     {

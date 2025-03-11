@@ -598,14 +598,25 @@ document.addEventListener('DOMContentLoaded', function() {
         const settingsToggle = document.getElementById('settings-toggle');
         const settingsPanel = document.getElementById('settings-panel');
         
-        settingsToggle.addEventListener('click', function() {
-            settingsPanel.classList.toggle('active');
-        });
+        // Completely replace both event handlers with a single more robust one
+        const handleSettingsToggle = function(e) {
+            e.preventDefault(); // Prevent any default actions
+            e.stopPropagation(); // Prevent event bubbling
+            
+            // Force toggle the settings panel
+            if (settingsPanel.classList.contains('active')) {
+                settingsPanel.classList.remove('active');
+            } else {
+                settingsPanel.classList.add('active');
+            }
+            
+            // Return false to ensure the event is completely handled
+            return false;
+        };
         
-        settingsToggle.addEventListener('touchstart', function(e) {
-            e.preventDefault(); // Prevent default to avoid delays
-            settingsPanel.classList.toggle('active');
-        });
+        // Add both event listeners with the same handler
+        settingsToggle.addEventListener('click', handleSettingsToggle);
+        settingsToggle.addEventListener('touchstart', handleSettingsToggle);
         
         // Close settings panel when clicking outside
         document.addEventListener('click', function(event) {
