@@ -5,6 +5,10 @@
     font-family: 'Inria Sans', sans-serif;
 }
 
+:root {
+    --accent-color: #14DCFF;
+}
+
 /* Full screen app styles */
 html {
     height: 100%;
@@ -87,7 +91,7 @@ h1 {
     min-width: 50px;
     min-height: 60px;
     background-color: #1C1C1C; /* App background color */
-    border: 1px solid   #434343; 
+    border: 1px solid #434343; 
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -155,8 +159,8 @@ h1 {
     color: red;
     text-shadow: 1px 1px 2px #000;
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    border: 2px solid   #4E4E4E; 
+    /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); */
+    border: 1px solid  #434343; 
 }
 
 .day.completed .day-label {
@@ -291,7 +295,7 @@ h1 {
     transform: translateX(-50%);
     width: 80px;
     height: 80px;
-    background-color: #EF9C9C;
+    background-color: var(--accent-color);
     border: none;
     border-radius: 50%;
     cursor: pointer;
@@ -493,18 +497,30 @@ h1 {
 
 .congrats-container {
     background-color: #1C1C1C;
-    border: 2px solid #EF9C9C;
+    border: 2px solid var(--accent-color);
     border-radius: 12px;
     padding: 30px;
     text-align: center;
     max-width: 80%;
     z-index: 1001;
     animation: scaleIn 0.5s cubic-bezier(0.18, 1.65, 0.58, 0.9);
-    box-shadow: 0 0 20px rgba(239, 156, 156, 0.5);
+    box-shadow: 0 0 20px var(--accent-color)33;
+}
+
+.continue-button {
+    background-color: var(--accent-color);
+    color: #1C1C1C;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 1em;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s;
 }
 
 .congrats-container h2 {
-    color: #EF9C9C;
+    color: var(--accent-color);
     font-size: 2em;
     margin-bottom: 20px;
 }
@@ -516,7 +532,7 @@ h1 {
 }
 
 .reset-button {
-    background-color: #EF9C9C;
+    background-color: var(--accent-color);
     color: #1C1C1C;
     border: none;
     padding: 12px 24px;

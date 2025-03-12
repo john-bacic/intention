@@ -1524,6 +1524,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Save progress to local storage
         saveProgress();
     }
+
     
     // Function to create the dots grid for big number display
     function createDotsGrid() {
