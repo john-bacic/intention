@@ -901,8 +901,8 @@ html, body {
 .slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
     background: #E91E63;
     border-radius: 50%;
     cursor: pointer;
@@ -910,8 +910,8 @@ html, body {
 }
 
 .slider::-moz-range-thumb {
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
     background: #E91E63;
     border-radius: 50%;
     cursor: pointer;
@@ -922,13 +922,13 @@ html, body {
 /* Add touch-specific optimizations */
 @media (pointer: coarse) {
     .slider::-webkit-slider-thumb {
-        width: 34px;
-        height: 34px;
+        width: 44px;
+        height: 44px;
     }
     
     .slider::-moz-range-thumb {
-        width: 34px;
-        height: 34px;
+        width: 44px;
+        height: 44px;
     }
     
     .slider {

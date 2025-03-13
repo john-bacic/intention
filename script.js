@@ -1501,18 +1501,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // Get frequency data
             analyser.getByteFrequencyData(dataArray);
             
-            // Calculate average volume across frequency spectrum
-            let totalVolume = 0;
+            // Calculate overall audio level for visualization
+            let totalSum = 0;
             for (let i = 0; i < dataArray.length; i++) {
-                totalVolume += dataArray[i];
+                totalSum += dataArray[i];
             }
-            const averageVolume = totalVolume / dataArray.length;
+            const overallLevel = totalSum / dataArray.length;
             
-            // Calculate sensitivity threshold based on user setting (1-10)
+            // Current audio detection calculations
             const detectionThreshold = 45 - (audioSensitivity * 4);
-            
-            // Current audio state (true = sound detected, false = silence)
-            const soundDetected = averageVolume >= detectionThreshold;
+            const soundDetected = overallLevel >= detectionThreshold;
             
             // Track consecutive frames for noise reduction
             if (soundDetected) {
@@ -1570,12 +1568,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Animation amplification factor for visualization
             const amplificationFactor = 0.25 + (audioSensitivity * 0.1);
             
-            // Number of bars directly corresponds to sensitivity setting (1-5)
+            // Number of bars directly corresponds to slider setting (1-5)
             const visibleBars = audioSensitivity;
             
             // Update visualization bars
             for (let i = 0; i < bars.length; i++) {
-                // Hide or show bars based on current sensitivity
+                // Show or hide bars based on slider value
                 if (i < visibleBars) {
                     bars[i].style.display = 'block';
                 } else {
@@ -1888,7 +1886,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (visualizer) {
             const bars = visualizer.querySelectorAll('.bar');
             
-            // Number of bars directly corresponds to sensitivity setting (1-5)
+            // Number of bars directly corresponds to sensitivity setting (1-10)
             const visibleBars = audioSensitivity;
             
             // Update bar visibility
