@@ -70,8 +70,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Global variables
     let currentDay = 1;
     let dayData = [];
-    let clickQueue = [];
-    let processingQueue = false;
     let isVoiceEnabled = false;
     let recognition = null;
     let audioContext = null;
@@ -1050,176 +1048,31 @@ document.addEventListener('DOMContentLoaded', function() {
         // Generate a muted color for the square
         const color = generateMutedColor();
         
-        // Add click to queue with minimal data
-        clickQueue.push({
-            color: color,
-            dayData: currentDayData
-        });
-        
-        // Process the queue if not already processing
-        if (!processingQueue) {
-            processClickQueue();
-        }
-        
-        // Apply a more pronounced scale-down animation to simulate a button press
-        // First clear any existing animations
-        countButton.classList.remove('pulse');
-        
-        // Get the plus icon SVG for additional animation
-        const plusIcon = countButton.querySelector('.plus-icon');
-        
-        // Apply scale down effect to the button
-        countButton.style.transform = 'translateX(-50%) scale(0.8)';
-        countButton.style.transition = 'transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-        
-        // Also scale the icon for additional effect
-        if (plusIcon) {
-            plusIcon.style.transform = 'scale(0.8) rotate(-10deg)';
-            plusIcon.style.transition = 'transform 0.15s ease';
-        }
-        
-        // Return to normal after a short delay
-        setTimeout(() => {
-            countButton.style.transform = 'translateX(-50%) scale(1.1)';
-            if (plusIcon) {
-                plusIcon.style.transform = 'scale(1.1) rotate(5deg)';
-            }
-            
-            // Final return to normal size
-            setTimeout(() => {
-                countButton.style.transform = 'translateX(-50%) scale(1)';
-                countButton.style.transition = '';
-                if (plusIcon) {
-                    plusIcon.style.transform = 'scale(1) rotate(0)';
-                    plusIcon.style.transition = '';
-                }
-            }, 150);
-        }, 150);
-    }
-    
-    // Revised function to process the click queue
-    function processClickQueue() {
-        // If queue is empty, stop processing
-        if (clickQueue.length === 0) {
-            processingQueue = false;
-            return;
-        }
-        
-        // Mark as processing
-        processingQueue = true;
-        
-        // Get the next click from the queue - ONLY ONE AT A TIME
-        const clickData = clickQueue.shift();
-        
-        if (!clickData) {
-            processingQueue = false;
-            return;
-        }
-        
-        const { color, dayData } = clickData;
-        
-        // Check if we've already reached 100 - enforce the limit
-        if (dayData.count >= 100) {
-            // Skip this click and process the next one
-            processingQueue = false;
-            if (clickQueue.length > 0) {
-                setTimeout(processClickQueue, 10);
-            }
-            return;
-        }
-        
-        // Calculate the next sequential number
-        // This ensures we never skip numbers, even with rapid clicks
-        const existingNumbers = dayData.coloredSquares.map(square => square.number);
-        lastProcessedNumber++;
-        
-        // Skip this number if it's already been used
-        while (existingNumbers.includes(lastProcessedNumber)) {
-            lastProcessedNumber++;
-        }
-        
-        // Use the calculated sequential number, but cap at 100
-        const nextNumber = Math.min(lastProcessedNumber, 100);
+        // Process this click immediately without using the queue
+        const nextNumber = currentDayData.count + 1;
         
         // Update the day data count, capped at 100
-        dayData.count = Math.min(Math.max(dayData.count, nextNumber), 100);
+        currentDayData.count = Math.min(nextNumber, 100);
         
         // Handle differently based on display mode
         if (settings.displayMode === 'big') {
-            // Big mode - direct and simple approach
+            // Big mode - direct approach
             handleBigModeClick(nextNumber, color);
         } else {
-            // Grid mode - instant processing just like Big mode
-            handleGridModeClick(dayData, color, nextNumber);
+            // Grid mode - direct approach
+            // Add to colored squares array
+            currentDayData.coloredSquares.push({
+                number: nextNumber,
+                color: color,
+                position: getNextRandomPosition()
+            });
+            
+            // Update the squares in the grid
+            updateUI();
         }
         
-        // Check completion after processing the click
-        checkCompletionAndSave(dayData);
-        
-        // Continue processing queue with a slight delay to allow animations to be visible
-        if (clickQueue.length > 0) {
-            // Use setTimeout with a small delay to make animations visible even with rapid clicks
-            setTimeout(processClickQueue, 150);
-        } else {
-            processingQueue = false;
-        }
-    }
-    
-    // New function to handle Grid mode clicks - updated to accept explicit number parameter
-    function handleGridModeClick(currentDayData, color, number) {
-        let position;
-        
-        if (settings.displayMode === 'random') {
-            position = getNextRandomPosition();
-        } else if (settings.displayMode === 'sequential') {
-            position = number - 1; // Position is 0-indexed
-        }
-        
-        // Update the button color to match the latest square - match Big mode behavior
-        countButton.style.backgroundColor = color;
-        
-        // Add a pop-in animation to the square
-        const squares = document.querySelectorAll('.square');
-        if (position < squares.length) {
-            const square = squares[position];
-            
-            // First set initial state for animation
-            square.style.backgroundColor = color;
-            square.textContent = number;
-            square.classList.add('colored');
-            
-            // Set initial state for stronger pop-in animation
-            square.style.opacity = '0';
-            square.style.transform = 'scale(0)';
-            
-            // Force reflow to ensure animation plays
-            void square.offsetWidth;
-            
-            // Use custom animation with more dramatic effect
-            square.style.transition = 'transform 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49), opacity 0.4s ease';
-            square.style.transform = 'scale(1.1)';
-            square.style.opacity = '1';
-            
-            // Remove the scaling after the animation completes
-            setTimeout(() => {
-                square.style.transform = 'scale(1)';
-            }, 350);
-        }
-        
-        // Get current day data and add the square
-        const squareData = { 
-            position: position,
-            color: color,
-            number: number
-        };
-        
-        // Add the square data
-        currentDayData.coloredSquares.push(squareData);
-        
-        // Update the count if needed
-        if (currentDayData.count < number) {
-            currentDayData.count = number;
-        }
+        // Check completion after processing
+        checkCompletionAndSave(currentDayData);
     }
     
     function getAvailablePositions() {
@@ -1565,77 +1418,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Completely rewritten function for Big mode
-    function handleBigModeClick(number, color) {
-        // Update the button color
-        countButton.style.backgroundColor = color;
-        
-        // Get the big number display container
-        const bigNumberDisplay = document.querySelector('.big-number-display');
-        
-        // First, completely remove any existing content
-        bigNumberDisplay.innerHTML = '';
-        
-        // Create the dots grid
-        const dotsGrid = createDotsGrid();
-        bigNumberDisplay.appendChild(dotsGrid);
-        
-        // Create a new element for the number
-        const newNumber = document.createElement('div');
-        newNumber.style.color = color;
-        newNumber.style.fontSize = 'inherit';
-        newNumber.style.display = 'flex';
-        newNumber.style.justifyContent = 'center';
-        newNumber.style.alignItems = 'center';
-        newNumber.style.width = '100%';
-        newNumber.style.height = '100%';
-        newNumber.style.position = 'relative';
-        newNumber.style.zIndex = '1';
-        newNumber.textContent = number;
-        
-        // Set initial state for animation
-        newNumber.style.opacity = '0';
-        newNumber.style.transform = 'scale(0)';
-        
-        // Add the new number to the display
-        bigNumberDisplay.appendChild(newNumber);
-        
-        // Force reflow
-        void newNumber.offsetWidth;
-        
-        // Apply animation
-        newNumber.style.transition = 'transform 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49), opacity 0.4s ease';
-        newNumber.style.transform = 'scale(1.1)';
-        newNumber.style.opacity = '1';
-        
-        // Remove the scaling after the animation completes
-        setTimeout(() => {
-            newNumber.style.transform = 'scale(1)';
-        }, 350);
-        
-        // Apply a pulse animation to the entire counter for extra feedback
-        bigNumberDisplay.style.transition = 'transform 0.3s ease';
-        bigNumberDisplay.style.transform = 'scale(1.05)';
-        setTimeout(() => {
-            bigNumberDisplay.style.transform = 'scale(1)';
-        }, 300);
-        
-        // Update the dots grid based on the current number
-        updateDots(number);
-        
-        // Add this square to colored squares with a position for data consistency
-        const position = number - 1;
-        const squareData = { 
-            number: number, 
-            color: color,
-            position: position
-        };
-        
-        // Get current day data and add the square
-        const currentDayData = dayData[currentDay - 1];
-        currentDayData.coloredSquares.push(squareData);
-    }
-
     // Function to handle count clicks triggered by audio without animation conflicts
     function handleCountClickFromAudio() {
         // Get current day data
@@ -1649,18 +1431,242 @@ document.addEventListener('DOMContentLoaded', function() {
         // Generate a muted color for the square
         const color = generateMutedColor();
         
-        // Add click to queue with minimal data
-        clickQueue.push({
-            color: color,
-            dayData: currentDayData
-        });
+        // Process this audio trigger immediately without using the queue
+        const nextNumber = currentDayData.count + 1;
         
-        // Process the queue if not already processing
-        if (!processingQueue) {
-            processClickQueue();
+        // Update the day data count, capped at 100
+        currentDayData.count = Math.min(nextNumber, 100);
+        
+        // Handle differently based on display mode
+        if (settings.displayMode === 'big') {
+            // Big mode - direct approach
+            handleBigModeClick(nextNumber, color);
+        } else {
+            // Grid mode - direct approach
+            // Add to colored squares array
+            currentDayData.coloredSquares.push({
+                number: nextNumber,
+                color: color,
+                position: getNextRandomPosition()
+            });
+            
+            // Update the squares in the grid
+            updateUI();
         }
+        
+        // Check completion after processing
+        checkCompletionAndSave(currentDayData);
     }
-
+    
+    // Function to visualize audio
+    function visualizeAudio(bars) {
+        // Create data array
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        
+        // Strict control variables to prevent unwanted triggers
+        let soundDetectedTimestamp = 0;
+        const COOLDOWN_PERIOD = 1500; // 1.5 seconds between triggers
+        const REQUIRED_SILENCE_PERIOD = 500; // Require 0.5 seconds of silence before next trigger
+        let lastSilenceTimestamp = Date.now();
+        let isSilent = true;
+        let canTrigger = true;
+        
+        // Keep track of consecutive audio frames above threshold
+        let consecutiveAudioFrames = 0;
+        const REQUIRED_CONSECUTIVE_FRAMES = 2; // Require consecutive frames above threshold
+        
+        // Set up a periodic auto-reset to prevent any stuck states
+        const AUTO_RESET_INTERVAL = 5000; // 5 seconds
+        const autoResetTimer = setInterval(() => {
+            // Force reset detection state during extended silence
+            if (isSilent && Date.now() - lastSilenceTimestamp > 3000) {
+                canTrigger = true;
+                consecutiveAudioFrames = 0;
+                console.log("Auto-reset audio detection state at", new Date().toLocaleTimeString());
+            }
+        }, AUTO_RESET_INTERVAL);
+        
+        // Function to render the visualization
+        function render() {
+            // Only continue if voice is enabled
+            if (!isVoiceEnabled) {
+                // Immediately request next frame to avoid any gaps
+                animationId = requestAnimationFrame(render);
+                return;
+            }
+            
+            // Get the current timestamp for timing comparisons
+            const now = Date.now();
+            
+            // Get frequency data
+            analyser.getByteFrequencyData(dataArray);
+            
+            // Calculate average volume across frequency spectrum
+            let totalVolume = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                totalVolume += dataArray[i];
+            }
+            const averageVolume = totalVolume / dataArray.length;
+            
+            // Calculate sensitivity threshold based on user setting (1-10)
+            const detectionThreshold = 45 - (audioSensitivity * 4);
+            
+            // Current audio state (true = sound detected, false = silence)
+            const soundDetected = averageVolume >= detectionThreshold;
+            
+            // Track consecutive frames for noise reduction
+            if (soundDetected) {
+                consecutiveAudioFrames++;
+                
+                // Classify as not silent only after a few consecutive frames
+                if (consecutiveAudioFrames >= REQUIRED_CONSECUTIVE_FRAMES) {
+                    // If we were previously silent, this is a transition to sound
+                    if (isSilent) {
+                        // Only trigger if:
+                        // 1. We are past the cooldown period
+                        // 2. We've had enough silence before this sound
+                        // 3. We haven't already triggered recently
+                        if (canTrigger && 
+                            now - soundDetectedTimestamp > COOLDOWN_PERIOD && 
+                            now - lastSilenceTimestamp > REQUIRED_SILENCE_PERIOD) {
+                            
+                            // Record sound detection timestamp
+                            soundDetectedTimestamp = now;
+                            
+                            // Disable triggering until explicitly reenabled
+                            canTrigger = false;
+                            
+                            // Trigger the count
+                            handleCountClickFromAudio();
+                            
+                            // Log detection for debugging
+                            console.log("Audio trigger at", new Date().toLocaleTimeString());
+                            
+                            // Re-enable triggering after the full cooldown period
+                            setTimeout(() => {
+                                canTrigger = true;
+                                console.log("Cooldown finished at", new Date().toLocaleTimeString());
+                            }, COOLDOWN_PERIOD);
+                        }
+                    }
+                    
+                    // Mark as not silent
+                    isSilent = false;
+                }
+            } else {
+                // Reset consecutive frame counter
+                consecutiveAudioFrames = 0;
+                
+                // If we weren't silent before, this is a transition to silence
+                if (!isSilent) {
+                    lastSilenceTimestamp = now;
+                    isSilent = true;
+                    
+                    // Log silence detection for debugging
+                    console.log("Silence detected at", new Date().toLocaleTimeString());
+                }
+            }
+            
+            // Animation amplification factor for visualization
+            const amplificationFactor = 0.25 + (audioSensitivity * 0.075);
+            
+            // Update visualization bars
+            for (let i = 0; i < bars.length; i++) {
+                // Get frequency data for this bar
+                const start = Math.floor(i * dataArray.length / bars.length);
+                const end = Math.floor((i + 1) * dataArray.length / bars.length);
+                let sum = 0;
+                
+                // Sum frequencies
+                for (let j = start; j < end; j++) {
+                    sum += dataArray[j];
+                }
+                
+                // Calculate average
+                const avg = sum / (end - start);
+                
+                // Map to bar height with amplification
+                const height = Math.max(5, Math.min(40, avg * amplificationFactor));
+                
+                // Apply height to bar
+                bars[i].style.height = `${height}px`;
+            }
+            
+            // Request next frame
+            animationId = requestAnimationFrame(render);
+        }
+        
+        // Start visualization
+        render();
+    }
+    
+    // Function to reset and reinitialize audio system
+    function resetAudioSystem() {
+        // Reset audio state tracking variables
+        lastAudioState = false;
+        audioTriggerActive = false;
+        fullTranscript = "";
+        lastPhraseDetectionTime = 0;
+        
+        // Cancel any animation frame
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+        
+        // Disconnect microphone
+        if (microphone) {
+            microphone.disconnect();
+            microphone = null;
+        }
+        
+        // Stop all tracks in the microphone stream
+        if (microphoneStream) {
+            microphoneStream.getTracks().forEach(track => {
+                track.stop();
+            });
+            microphoneStream = null;
+        }
+        
+        // Close the audio context
+        if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+            analyser = null;
+        }
+        
+        // Create a new audio context
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Get visualizer and its bars
+        const visualizer = document.getElementById('audio-visualizer');
+        const bars = visualizer.querySelectorAll('.bar');
+        
+        // Create analyser node
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        
+        // Request microphone access
+        return navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                // Store the stream for proper cleanup
+                microphoneStream = stream;
+                
+                // Connect microphone to analyser
+                microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+                
+                // Start visualization
+                visualizeAudio(bars);
+                
+                return true;
+            })
+            .catch(err => {
+                console.error('Error accessing microphone:', err);
+                return false;
+            });
+    }
+    
     // Function to initialize voice recognition
     function initVoiceRecognition() {
         try {
@@ -1867,169 +1873,76 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('audioSensitivity', audioSensitivity);
     }
     
-    // Function to visualize audio
-    function visualizeAudio(bars) {
-        // Create data array
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    // Function to handle Big mode clicks - updated to accept explicit number parameter
+    function handleBigModeClick(number, color) {
+        // Update the button color
+        countButton.style.backgroundColor = color;
         
-        // Variables for audio-triggered counting
-        let lastTriggerTime = 0;
-        const triggerCooldown = 1000; // 1 second cooldown between triggers to prevent rapid counting
+        // Get the big number display container
+        const bigNumberDisplay = document.querySelector('.big-number-display');
         
-        // Function to render the visualization
-        function render() {
-            // Only continue if voice is enabled
-            if (!isVoiceEnabled) return;
-            
-            // Get frequency data
-            analyser.getByteFrequencyData(dataArray);
-            
-            // First, calculate the first bar's height for audio state detection
-            const firstBarStart = Math.floor(0 * dataArray.length / bars.length);
-            const firstBarEnd = Math.floor(1 * dataArray.length / bars.length);
-            let firstBarSum = 0;
-            
-            // Sum frequencies for first bar
-            for (let j = firstBarStart; j < firstBarEnd; j++) {
-                firstBarSum += dataArray[j];
-            }
-            
-            // Calculate average for first bar
-            const firstBarAvg = firstBarSum / (firstBarEnd - firstBarStart);
-            
-            // Calculate sensitivity threshold based on user setting (1-10)
-            // Lower sensitivity (1) means higher threshold to detect sound (~25)
-            // Higher sensitivity (10) means lower threshold to detect sound (~5)
-            const detectionThreshold = 30 - (audioSensitivity * 2.5);
-            
-            // Map to height (5px to 40px)
-            const firstBarHeight = Math.max(5, Math.min(40, firstBarAvg * 0.4));
-            
-            // Determine current audio state based on the height and sensitivity threshold
-            const currentAudioState = firstBarHeight >= detectionThreshold;
-            
-            // Detect transition from silence to audio (instead of continuous audio detection)
-            if (!lastAudioState && currentAudioState && !audioTriggerActive) {
-                const now = Date.now();
-                if (now - lastTriggerTime > triggerCooldown) {
-                    lastTriggerTime = now;
-                    audioTriggerActive = true;
-                    
-                    // Trigger the count button when we go from silence to audio
-                    setTimeout(() => {
-                        handleCountClickFromAudio();
-                        // Reset the flag after a short delay
-                        setTimeout(() => {
-                            audioTriggerActive = false;
-                        }, 200);
-                    }, 10);
-                }
-            }
-            
-            // Update last audio state for next comparison
-            lastAudioState = currentAudioState;
-            
-            // Animation amplification factor based on sensitivity
-            // Higher sensitivity = more amplification of the visualizer
-            const amplificationFactor = 0.25 + (audioSensitivity * 0.075);
-            
-            // Calculate average frequency for each bar for visualization
-            for (let i = 0; i < bars.length; i++) {
-                // Get frequency data for this bar
-                const start = Math.floor(i * dataArray.length / bars.length);
-                const end = Math.floor((i + 1) * dataArray.length / bars.length);
-                let sum = 0;
-                
-                // Sum frequencies
-                for (let j = start; j < end; j++) {
-                    sum += dataArray[j];
-                }
-                
-                // Calculate average
-                const avg = sum / (end - start);
-                
-                // Map to bar height with amplification based on sensitivity
-                // More sensitive = more exaggerated movements
-                const height = Math.max(5, Math.min(40, avg * amplificationFactor));
-                
-                // Apply height to bar
-                bars[i].style.height = `${height}px`;
-            }
-            
-            // Request next frame
-            animationId = requestAnimationFrame(render);
-        }
+        // First, completely remove any existing content
+        bigNumberDisplay.innerHTML = '';
         
-        // Start visualization
-        render();
+        // Create the dots grid
+        const dotsGrid = createDotsGrid();
+        bigNumberDisplay.appendChild(dotsGrid);
+        
+        // Create a new element for the number
+        const newNumber = document.createElement('div');
+        newNumber.style.color = color;
+        newNumber.style.fontSize = 'inherit';
+        newNumber.style.display = 'flex';
+        newNumber.style.justifyContent = 'center';
+        newNumber.style.alignItems = 'center';
+        newNumber.style.width = '100%';
+        newNumber.style.height = '100%';
+        newNumber.style.position = 'relative';
+        newNumber.style.zIndex = '1';
+        newNumber.textContent = number;
+        
+        // Set initial state for animation
+        newNumber.style.opacity = '0';
+        newNumber.style.transform = 'scale(0)';
+        
+        // Add the new number to the display
+        bigNumberDisplay.appendChild(newNumber);
+        
+        // Force reflow
+        void newNumber.offsetWidth;
+        
+        // Apply animation
+        newNumber.style.transition = 'transform 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49), opacity 0.4s ease';
+        newNumber.style.transform = 'scale(1.1)';
+        newNumber.style.opacity = '1';
+        
+        // Remove the scaling after the animation completes
+        setTimeout(() => {
+            newNumber.style.transform = 'scale(1)';
+        }, 350);
+        
+        // Apply a pulse animation to the entire counter for extra feedback
+        bigNumberDisplay.style.transition = 'transform 0.3s ease';
+        bigNumberDisplay.style.transform = 'scale(1.05)';
+        setTimeout(() => {
+            bigNumberDisplay.style.transform = 'scale(1)';
+        }, 300);
+        
+        // Update the dots grid based on the current number
+        updateDots(number);
+        
+        // Add this square to colored squares with a position for data consistency
+        const position = number - 1;
+        const squareData = { 
+            number: number, 
+            color: color,
+            position: position
+        };
+        
+        // Get current day data and add the square
+        const currentDayData = dayData[currentDay - 1];
+        currentDayData.coloredSquares.push(squareData);
     }
-    
-    // Function to reset and reinitialize audio system
-    function resetAudioSystem() {
-        // Reset audio state tracking variables
-        lastAudioState = false;
-        audioTriggerActive = false;
-        fullTranscript = "";
-        lastPhraseDetectionTime = 0;
-        
-        // Cancel any animation frame
-        if (animationId) {
-            cancelAnimationFrame(animationId);
-            animationId = null;
-        }
-        
-        // Disconnect microphone
-        if (microphone) {
-            microphone.disconnect();
-            microphone = null;
-        }
-        
-        // Stop all tracks in the microphone stream
-        if (microphoneStream) {
-            microphoneStream.getTracks().forEach(track => {
-                track.stop();
-            });
-            microphoneStream = null;
-        }
-        
-        // Close the audio context
-        if (audioContext) {
-            audioContext.close();
-            audioContext = null;
-            analyser = null;
-        }
-        
-        // Create a new audio context
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // Get visualizer and its bars
-        const visualizer = document.getElementById('audio-visualizer');
-        const bars = visualizer.querySelectorAll('.bar');
-        
-        // Create analyser node
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        
-        // Request microphone access
-        return navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => {
-                // Store the stream for proper cleanup
-                microphoneStream = stream;
-                
-                // Connect microphone to analyser
-                microphone = audioContext.createMediaStreamSource(stream);
-                microphone.connect(analyser);
-                
-                // Start visualization
-                visualizeAudio(bars);
-                
-                return true;
-            })
-            .catch(err => {
-                console.error('Error accessing microphone:', err);
-                return false;
-            });
-    }
-    
+
     initializeApp();
 });
