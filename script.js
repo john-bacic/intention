@@ -1568,13 +1568,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Animation amplification factor for visualization
-            const amplificationFactor = 0.25 + (audioSensitivity * 0.075);
+            const amplificationFactor = 0.25 + (audioSensitivity * 0.1);
             
-            // Determine how many bars to show based on sensitivity level
-            // At sensitivity 10: show all bars (5)
-            // At sensitivity 2 or below: show only first bar (1)
-            // In between: show proportional number of bars
-            const visibleBars = audioSensitivity <= 2 ? 1 : Math.min(5, Math.ceil(audioSensitivity * 0.5));
+            // Number of bars directly corresponds to sensitivity setting (1-5)
+            const visibleBars = audioSensitivity;
             
             // Update visualization bars
             for (let i = 0; i < bars.length; i++) {
@@ -1891,8 +1888,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (visualizer) {
             const bars = visualizer.querySelectorAll('.bar');
             
-            // Calculate how many bars to show based on sensitivity
-            const visibleBars = audioSensitivity <= 2 ? 1 : Math.min(5, Math.ceil(audioSensitivity * 0.5));
+            // Number of bars directly corresponds to sensitivity setting (1-5)
+            const visibleBars = audioSensitivity;
             
             // Update bar visibility
             for (let i = 0; i < bars.length; i++) {
