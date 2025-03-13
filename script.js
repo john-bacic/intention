@@ -1570,8 +1570,22 @@ document.addEventListener('DOMContentLoaded', function() {
             // Animation amplification factor for visualization
             const amplificationFactor = 0.25 + (audioSensitivity * 0.075);
             
+            // Determine how many bars to show based on sensitivity level
+            // At sensitivity 10: show all bars (5)
+            // At sensitivity 2 or below: show only first bar (1)
+            // In between: show proportional number of bars
+            const visibleBars = audioSensitivity <= 2 ? 1 : Math.min(5, Math.ceil(audioSensitivity * 0.5));
+            
             // Update visualization bars
             for (let i = 0; i < bars.length; i++) {
+                // Hide or show bars based on current sensitivity
+                if (i < visibleBars) {
+                    bars[i].style.display = 'block';
+                } else {
+                    bars[i].style.display = 'none';
+                    continue; // Skip processing hidden bars
+                }
+                
                 // Get frequency data for this bar
                 const start = Math.floor(i * dataArray.length / bars.length);
                 const end = Math.floor((i + 1) * dataArray.length / bars.length);
@@ -1871,6 +1885,20 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Save to local storage
         localStorage.setItem('audioSensitivity', audioSensitivity);
+        
+        // Immediately update visualizer bars based on new sensitivity
+        const visualizer = document.getElementById('audio-visualizer');
+        if (visualizer) {
+            const bars = visualizer.querySelectorAll('.bar');
+            
+            // Calculate how many bars to show based on sensitivity
+            const visibleBars = audioSensitivity <= 2 ? 1 : Math.min(5, Math.ceil(audioSensitivity * 0.5));
+            
+            // Update bar visibility
+            for (let i = 0; i < bars.length; i++) {
+                bars[i].style.display = i < visibleBars ? 'block' : 'none';
+            }
+        }
     }
     
     // Function to handle Big mode clicks - updated to accept explicit number parameter
