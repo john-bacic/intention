@@ -74,14 +74,17 @@ document.addEventListener('DOMContentLoaded', function() {
     let processingQueue = false;
     let isVoiceEnabled = false;
     let recognition = null;
-    let isRecognitionActive = false;
+    let audioContext = null;
+    let analyser = null;
+    let microphone = null;
+    let microphoneStream = null; // Store the stream to properly close it
+    let animationId = null;
+    let audioSensitivity = 1; // Default sensitivity threshold (on 1-10 scale)
+    let audioTriggerActive = false; // Flag to prevent double counting
+    let lastAudioState = false; // false = silence, true = audio detected
+    let audioStateChangeTimeout = null; // Timeout for audio state changes
     let fullTranscript = ""; // Store the full transcript for phrase detection
     let lastPhraseDetectionTime = 0; // To prevent duplicate triggers
-    let lastFinalTranscriptTime = 0; // Track when we last received a final transcript
-    let speechPauseThreshold = 3000; // Increased pause to 3 seconds before processing
-    let pendingSpeechTimeout = null; // Timeout for processing pending speech
-    let consecutiveSilenceCount = 0; // Count consecutive silent periods
-    let silenceThreshold = 3; // How many consecutive silence periods needed before advancing
     let userMotivation = '';
     let settings = { 
         darkMode: false, 
@@ -92,16 +95,6 @@ document.addEventListener('DOMContentLoaded', function() {
     let bigModeAnimationTimeout = null;
     // Track the last processed number for data consistency
     let lastProcessedNumber = 0;
-    // Audio context variables
-    let audioContext = null;
-    let analyser = null;
-    let microphone = null;
-    let microphoneStream = null; // Store the stream to properly close it
-    let animationId = null;
-    let audioSensitivity = 1; // Default sensitivity threshold (on 1-10 scale)
-    let audioTriggerActive = false; // Flag to prevent double counting
-    let lastAudioState = false; // false = silence, true = audio detected
-    let audioStateChangeTimeout = null; // Timeout for audio state changes
     
     // Helper functions
     function generateMutedColor() {
@@ -1683,140 +1676,112 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to initialize voice recognition
     function initVoiceRecognition() {
         try {
-            // Create speech recognition instance
-            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new window.SpeechRecognition();
+            // Check if SpeechRecognition is supported
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                console.error('Speech recognition not supported in this browser.');
+                alert('Speech recognition is not supported in your browser.');
+                return false;
+            }
             
-            // Configure speech recognition
+            // Create recognition instance
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
             recognition.continuous = true;
             recognition.interimResults = true;
-            recognition.lang = 'en-US';
             
-            // Speech results event
-            recognition.onresult = function(event) {
+            // Reset transcript when starting
+            fullTranscript = "";
+            
+            // Add event listeners
+            recognition.onresult = event => {
                 let interimTranscript = '';
-                let finalTranscript = '';
                 
-                // Cancel any pending speech processing
-                if (pendingSpeechTimeout) {
-                    clearTimeout(pendingSpeechTimeout);
-                    pendingSpeechTimeout = null;
-                }
-                
-                // Process results
+                // Process all results
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript.trim().toLowerCase();
+                    const transcriptPart = event.results[i][0].transcript.toLowerCase();
                     
                     if (event.results[i].isFinal) {
-                        finalTranscript += transcript + ' ';
-                        lastFinalTranscriptTime = Date.now();
-                        console.log("Received final transcript:", finalTranscript);
-                        fullTranscript += finalTranscript; // Add to the full transcript
+                        fullTranscript += transcriptPart + ' ';
                     } else {
-                        interimTranscript += transcript;
+                        interimTranscript += transcriptPart;
                     }
                 }
                 
-                // Only schedule processing if we have a final transcript
-                if (finalTranscript) {
-                    // Wait for a significant pause before processing speech
-                    pendingSpeechTimeout = setTimeout(() => {
-                        console.log(`Processing after ${speechPauseThreshold}ms pause. Full transcript:`, fullTranscript);
-                        processSpeechInput(fullTranscript);
-                        // Reset the transcript after processing
-                        fullTranscript = "";
-                    }, speechPauseThreshold);
+                // Combined transcript for detection
+                const combinedTranscript = fullTranscript + interimTranscript;
+                console.log('Voice recognition transcript:', combinedTranscript);
+                
+                // Get the user's motivation or phrase to detect
+                const motivationField = document.getElementById('user-sentence');
+                const motivationText = motivationField.value.trim().toLowerCase();
+                
+                // Cooldown to prevent multiple triggers in quick succession
+                const now = Date.now();
+                const triggerCooldown = 2000; // 2 seconds cooldown
+                
+                if (motivationText) {
+                    // If there's text in the motivation field, check for that phrase
+                    if (containsPhrase(combinedTranscript, motivationText) && now - lastPhraseDetectionTime > triggerCooldown) {
+                        console.log(`Detected phrase: "${motivationText}"`);
+                        lastPhraseDetectionTime = now;
+                        handleCountClickFromAudio();
+                    }
+                } else {
+                    // Default behavior - look for specific keywords
+                    if ((containsPhrase(combinedTranscript, 'count') || 
+                         containsWordFollowedByNumber(combinedTranscript) ||
+                         containsPhrase(combinedTranscript, 'plus') || 
+                         containsPhrase(combinedTranscript, 'add')) && 
+                        now - lastPhraseDetectionTime > triggerCooldown) {
+                        
+                        lastPhraseDetectionTime = now;
+                        handleCountClickFromAudio();
+                    }
                 }
             };
             
-            // Handle errors
-            recognition.onerror = function(event) {
-                console.error('Speech recognition error', event.error);
-                
-                // If we get a no-speech error, restart after a delay
-                if (event.error === 'no-speech') {
-                    setTimeout(() => {
-                        try {
-                            if (isVoiceEnabled && !isRecognitionActive) {
-                                recognition.start();
-                                isRecognitionActive = true;
-                            }
-                        } catch (e) {
-                            console.error('Error restarting speech recognition', e);
-                        }
-                    }, 1000);
-                }
+            recognition.onerror = event => {
+                console.error('Speech recognition error:', event.error);
             };
             
-            // Handle when speech recognition ends
-            recognition.onend = function() {
-                isRecognitionActive = false;
-                console.log('Speech recognition ended');
-                
-                // Auto-restart recognition if it's still enabled
+            recognition.onend = () => {
+                // Restart recognition if it's still enabled
                 if (isVoiceEnabled) {
                     try {
-                        setTimeout(() => {
-                            recognition.start();
-                            isRecognitionActive = true;
-                            console.log('Speech recognition restarted');
-                        }, 500);
+                        recognition.start();
                     } catch (e) {
-                        console.error('Error restarting speech recognition', e);
+                        console.error('Error restarting speech recognition:', e);
                     }
                 }
             };
             
             // Start recognition
-            if (isVoiceEnabled) {
-                recognition.start();
-                isRecognitionActive = true;
-                console.log('Speech recognition started');
-            }
+            recognition.start();
             
             return true;
-        } catch (error) {
-            console.error('Speech recognition initialization failed:', error);
+        } catch (err) {
+            console.error('Error initializing voice recognition:', err);
             return false;
         }
     }
     
-    // Process speech input to detect phrases
-    function processSpeechInput(transcript) {
-        // Get the current time
-        const currentTime = new Date().getTime();
-        
-        // Check if enough time has passed since the last detection (5-second cooldown)
-        if (currentTime - lastPhraseDetectionTime < 5000) {
-            console.log("Cooldown active, ignoring phrase");
-            return;
-        }
-        
-        console.log("Processing complete sentence:", transcript);
-        
-        // Check for match with user motivation phrase (if set)
-        if (userMotivation && userMotivation.trim() !== '') {
-            const motivationPhrases = userMotivation.toLowerCase().split(',');
-            
-            for (const phrase of motivationPhrases) {
-                const trimmedPhrase = phrase.trim();
-                if (trimmedPhrase && transcript.includes(trimmedPhrase)) {
-                    console.log(`Detected motivation phrase: ${trimmedPhrase}`);
-                    handleCountClickFromAudio();
-                    lastPhraseDetectionTime = currentTime;
-                    return;
-                }
-            }
-        }
-        
-        // Default detection for "count" if no motivation is set or as fallback
-        if ((!userMotivation || userMotivation.trim() === '') && 
-            (transcript.includes('count') || transcript.includes('next'))) {
-            console.log("Detected default 'count' command");
-            handleCountClickFromAudio();
-            lastPhraseDetectionTime = currentTime;
-            return;
-        }
+    // Helper function to check if a transcript contains a phrase
+    function containsPhrase(transcript, phrase) {
+        // Use word boundary to detect the whole phrase
+        const regex = new RegExp(`\\b${escapeRegExp(phrase)}\\b`, 'i');
+        return regex.test(transcript);
+    }
+    
+    // Helper function to check if transcript contains a word followed by a number
+    function containsWordFollowedByNumber(transcript) {
+        // Match patterns like "count 1", "number 5", etc.
+        return /\b(count|number)\s+\d+\b/i.test(transcript);
+    }
+    
+    // Helper function to escape special characters for regex
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
     
     // Function to toggle voice recognition
@@ -1938,167 +1903,184 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to visualize audio
     function visualizeAudio(bars) {
-        if (!analyser) return;
+        // Create data array for time domain data
+        const timeDomainData = new Uint8Array(analyser.fftSize);
         
-        // Create buffers for audio analysis
+        // Create data array for frequency data
         const frequencyData = new Uint8Array(analyser.frequencyBinCount);
-        const timeData = new Uint8Array(analyser.fftSize);
         
-        // We'll keep a rolling average of audio levels for smoothing
-        const smoothingBufferSize = 5;
-        const audioLevels = [];
-        let baselineEstablished = false;
-        let baselineLevel = 0;
-        let lastTriggerTime = 0; // Track last trigger time to prevent rapid firing
-        const triggerCooldown = 2000; // 2 second cooldown between triggers
+        // Variables for audio-triggered counting
+        let lastTriggerTime = 0;
+        const triggerCooldown = 1000; // 1 second cooldown between triggers to prevent rapid counting
         
-        // Function to update the visualizer
-        function updateVisualizer() {
-            if (!analyser) return;
+        // Get the audio level indicator element
+        const audioLevelIndicator = document.getElementById('audio-level-indicator');
+        
+        // Debug confirmation 
+        console.log("Audio visualization started, indicator:", audioLevelIndicator);
+        
+        // Function to render the visualization
+        function render() {
+            // Only continue if voice is enabled
+            if (!isVoiceEnabled) return;
             
-            // Get frequency and time domain data
+            // Get time domain data for volume calculation
+            analyser.getByteTimeDomainData(timeDomainData);
+            
+            // Get frequency data for visualization
             analyser.getByteFrequencyData(frequencyData);
-            analyser.getByteTimeDomainData(timeData);
             
-            // Calculate average frequency for visualization
+            // Calculate volume from time domain data
+            let sumSquares = 0;
+            for (let i = 0; i < timeDomainData.length; i++) {
+                // Convert from 0-255 to -1 to 1
+                const amplitude = ((timeDomainData[i] / 128.0) - 1.0);
+                sumSquares += amplitude * amplitude;
+            }
+            
+            // Calculate RMS (root mean square)
+            const rms = Math.sqrt(sumSquares / timeDomainData.length);
+            
+            // Convert to decibels (logarithmic scale) and ensure values are positive
+            let db = Math.max(0, Math.round(20 * Math.log10(rms + 0.0001)));
+            
+            // Alternative method: use the raw frequency data average
             let frequencySum = 0;
             for (let i = 0; i < frequencyData.length; i++) {
                 frequencySum += frequencyData[i];
             }
-            const frequencyAvg = frequencySum / frequencyData.length;
+            const frequencyAvg = Math.round(frequencySum / frequencyData.length);
             
-            // Calculate RMS from time domain data for better level detection
-            let rms = 0;
-            for (let i = 0; i < timeData.length; i++) {
-                const amplitude = (timeData[i] - 128) / 128; // Convert to -1 to 1 range
-                rms += amplitude * amplitude;
-            }
-            rms = Math.sqrt(rms / timeData.length);
-            
-            // Convert RMS to decibels with some scaling
-            const db = 20 * Math.log10(Math.max(rms, 0.0001)) + 90;
-            
-            // Calculate amplification factor based on sensitivity setting (1-5 scale)
-            // Map exactly from 0.1 at level 1 to 1.0 at level 5
-            const amplificationFactor = 0.1 + ((audioSensitivity - 1) * (0.9 / 4));
+            // Calculate amplification factor based on sensitivity setting
+            // Higher sensitivity = amplify quiet sounds more (1=low, 5=high)
+            let amplificationFactor = 0.1 + (audioSensitivity * 0.18); // Ranges from 0.1 (level 1) to 1.0 (level 5)
             
             // Apply volume amplification
             const amplifiedFrequencyAvg = Math.round(frequencyAvg * amplificationFactor);
             const amplifiedDb = Math.round(db * amplificationFactor);
             
-            // Add to rolling average buffer
-            audioLevels.push(amplifiedDb);
-            if (audioLevels.length > smoothingBufferSize) {
-                audioLevels.shift(); // Remove oldest entry
-            }
+            // Final audio level to display - use the larger of the two values for better visibility
+            const audioLevel = Math.max(amplifiedDb, amplifiedFrequencyAvg);
             
-            // Calculate smoothed audio level
-            const smoothedAudioLevel = audioLevels.reduce((sum, val) => sum + val, 0) / audioLevels.length;
-            
-            // Update audio level indicator with smoothed value
-            const audioLevelIndicator = document.getElementById('audio-level-indicator');
+            // Always update the level indicator with the current value
             if (audioLevelIndicator) {
-                // Show the dB level as text
-                audioLevelIndicator.textContent = `${Math.round(smoothedAudioLevel)} dB`;
+                // Show decibels
+                audioLevelIndicator.textContent = audioLevel + ' dB';
                 
-                // Color based on level
-                if (smoothedAudioLevel < 30) {
-                    audioLevelIndicator.style.color = "#999"; // Grey for very quiet
-                } else if (smoothedAudioLevel < 50) {
-                    audioLevelIndicator.style.color = "#4CAF50"; // Green for normal
-                } else if (smoothedAudioLevel < 70) {
-                    audioLevelIndicator.style.color = "#FF9800"; // Orange for loud
+                // Change color based on level
+                if (audioLevel > 40) {
+                    audioLevelIndicator.style.color = '#4CAF50'; // Green for high volume
+                } else if (audioLevel > 20) {
+                    audioLevelIndicator.style.color = '#FFA000'; // Orange for medium volume
                 } else {
-                    audioLevelIndicator.style.color = "#F44336"; // Red for very loud
+                    audioLevelIndicator.style.color = '#E91E63'; // Pink for low volume
                 }
+                
+                // Make indicator visible
+                audioLevelIndicator.style.opacity = '1';
             }
             
-            // Establish baseline if not already done
-            if (!baselineEstablished && audioLevels.length === smoothingBufferSize) {
-                // If initial audio level is high, use a reasonable low value
-                baselineLevel = smoothedAudioLevel < 30 ? smoothedAudioLevel : 25;
-                baselineEstablished = true;
-                console.log("Baseline audio level established:", baselineLevel);
+            // First, calculate the first bar's height for audio state detection
+            const firstBarStart = Math.floor(0 * frequencyData.length / bars.length);
+            const firstBarEnd = Math.floor(1 * frequencyData.length / bars.length);
+            let firstBarSum = 0;
+            
+            // Sum frequencies for first bar
+            for (let j = firstBarStart; j < firstBarEnd; j++) {
+                firstBarSum += frequencyData[j];
             }
             
-            // Threshold for considering audio to be active (adjusts with sensitivity)
-            // Lower threshold when sensitivity is higher
-            const activeThreshold = baselineLevel + 15 - (audioSensitivity * 2);
+            // Calculate average for first bar 
+            const firstBarAvg = firstBarSum / (firstBarEnd - firstBarStart);
             
-            // Current time for cooldown check
+            // Apply amplification based on sensitivity setting
+            const amplifiedFirstBarAvg = firstBarAvg * amplificationFactor;
+            
+            // Fixed detection threshold (since sensitivity now controls amplification instead)
+            const detectionThreshold = 20; // A moderate threshold that works with amplification
+            
+            // Map to height (5px to 40px)
+            const firstBarHeight = Math.max(5, Math.min(40, amplifiedFirstBarAvg * 0.4));
+            
+            // Determine current audio state based on the height and threshold
+            const currentAudioState = firstBarHeight >= detectionThreshold;
+            
+            // For debugging, log the current db level
+            if (Math.random() < 0.01) { // Log occasionally
+                console.log('Current dB:', db, 'Threshold:', detectionThreshold, 'FirstBarAvg:', firstBarAvg);
+            }
+            
+            // For level 5, add a debug flag to force trigger if no recent triggers
             const now = Date.now();
-            
-            // Determine if we're currently detecting sound based on smoothed level
-            const currentAudioState = smoothedAudioLevel > activeThreshold;
-            
-            // Visual indication of sound threshold being triggered
-            const visualizerContainer = document.getElementById('audio-visualizer-container');
-            
-            // Display active state in UI
-            if (visualizerContainer) {
-                if (currentAudioState) {
-                    visualizerContainer.classList.add('triggered');
-                } else {
-                    visualizerContainer.classList.remove('triggered');
-                }
-            }
-            
-            // Handle audio state transitions
-            if (currentAudioState !== lastAudioState) {
-                // Clear any pending timeouts to avoid race conditions
-                if (audioStateChangeTimeout) {
-                    clearTimeout(audioStateChangeTimeout);
-                }
+            // Detect transition from silence to audio (instead of continuous audio detection)
+            if ((!lastAudioState && currentAudioState && !audioTriggerActive) || 
+                (audioSensitivity === 5 && firstBarHeight >= 3 && now - lastTriggerTime > 2000 && !audioTriggerActive)) {
+                lastTriggerTime = now;
+                audioTriggerActive = true;
                 
-                // Set a timeout to help with debouncing
-                audioStateChangeTimeout = setTimeout(() => {
-                    // If we're transitioning TO silence after audio was detected
-                    if (!currentAudioState && lastAudioState) {
-                        // Check cooldown period
-                        if (now - lastTriggerTime > triggerCooldown) {
-                            console.log("Audio returned to baseline - advancing counter");
-                            handleCountClickFromAudio();
-                            lastTriggerTime = now;
-                        } else {
-                            console.log("Cooldown active, skipping trigger");
-                        }
-                    }
-                    
-                    // Update the last state
-                    lastAudioState = currentAudioState;
-                }, 300); // 300ms debounce time
+                // Trigger the count button when we go from silence to audio
+                setTimeout(() => {
+                    handleCountClickFromAudio();
+                    // Reset the flag after a short delay
+                    setTimeout(() => {
+                        audioTriggerActive = false;
+                    }, 200);
+                }, 10);
             }
             
-            // Animation amplification factor for visualization
-            const animationFactor = 0.1 + ((audioSensitivity - 1) * (0.9 / 4)); // 0.1 to 1.0 range
+            // Update last audio state for next comparison
+            lastAudioState = currentAudioState;
+            
+            // Animation amplification factor based on sensitivity
+            // Higher sensitivity = more amplification of the visualizer
+            amplificationFactor = 0.1 + (audioSensitivity * 0.18); // Ranges from 0.1 to 1.0
             
             // Calculate average frequency for each bar for visualization
             for (let i = 0; i < bars.length; i++) {
-                // Get a slice of the frequency data for this bar
-                const startIndex = Math.floor(i * frequencyData.length / bars.length);
-                const endIndex = Math.floor((i + 1) * frequencyData.length / bars.length);
+                // Show or hide bars based on sensitivity setting
+                // Sensitivity 1 = 1 bar, Sensitivity 5 = 5 bars
+                if (i < audioSensitivity) {
+                    bars[i].style.display = 'block';
+                } else {
+                    bars[i].style.display = 'none';
+                    continue; // Skip calculations for hidden bars
+                }
                 
+                // If this is the first bar, add the 'active' class to the visualizer
+                if (i === 0) {
+                    document.getElementById('audio-visualizer').classList.add('active');
+                }
+                
+                // Get frequency data for this bar
+                const start = Math.floor(i * frequencyData.length / bars.length);
+                const end = Math.floor((i + 1) * frequencyData.length / bars.length);
                 let sum = 0;
-                for (let j = startIndex; j < endIndex; j++) {
+                
+                // Sum frequencies
+                for (let j = start; j < end; j++) {
                     sum += frequencyData[j];
                 }
                 
-                // Average for this segment
-                const average = sum / (endIndex - startIndex);
+                // Calculate average
+                const avg = sum / (end - start);
                 
-                // Apply scaling and amplification
-                const scaledHeight = Math.max(5, Math.min(40, average * 0.5 * animationFactor));
+                // Apply volume amplification based on sensitivity level
+                const amplifiedAvg = avg * amplificationFactor;
                 
-                // Animate the bar height
-                bars[i].style.height = `${scaledHeight}px`;
+                // Map to bar height with amplification
+                // More sensitive = taller bars for the same input
+                const height = Math.max(5, Math.min(40, amplifiedAvg * 0.4));
+                
+                // Apply height to bar
+                bars[i].style.height = `${height}px`;
             }
             
-            // Continue animation
-            animationId = requestAnimationFrame(updateVisualizer);
+            // Request next frame
+            animationId = requestAnimationFrame(render);
         }
         
-        // Start the visualization
-        updateVisualizer();
+        // Start visualization
+        render();
     }
     
     // Function to reset and reinitialize audio system
@@ -2337,3 +2319,4 @@ document.addEventListener('DOMContentLoaded', function() {
     
     initializeApp();
 });
+// end of script
