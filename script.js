@@ -578,12 +578,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (position < squares.length) {
                 const square = squares[position];
                 
-                // Set initial properties
+                // First set initial state for animation
                 square.style.backgroundColor = squareData.color;
                 square.textContent = squareData.number;
                 square.classList.add('colored');
                 
-                // Set initial state for animation
+                // Set initial state for stronger pop-in animation
                 square.style.opacity = '0';
                 square.style.transform = 'scale(0)';
                 
@@ -1076,43 +1076,27 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Apply scale down effect to the button with smooth transition
         countButton.style.transform = 'translateX(-50%) scale(0.85)';
-        countButton.style.transition = 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        countButton.style.transition = 'transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
         
-        // Smoothly rotate the icon CLOCKWISE with better timing
+        // Smoothly rotate the icon with improved timing
         if (plusIcon) {
-            // Use a smoother easing function and longer duration for rotation
-            plusIcon.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            // Use a smoother easing function for rotation
+            plusIcon.style.transition = 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             plusIcon.style.transform = 'scale(0.85) rotate(20deg)';
         }
         
-        // Return to normal with a nicer animation sequence
+        // Return to normal with a smoother animation sequence
         setTimeout(() => {
-            // Bounce effect for button
-            countButton.style.transform = 'translateX(-50%) scale(1.05)';
+            // Smooth return to normal for button
+            countButton.style.transform = 'translateX(-50%) scale(1)';
+            countButton.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
             
-            // Continue smooth rotation
+            // Smooth rotation back to normal
             if (plusIcon) {
-                plusIcon.style.transform = 'scale(1.05) rotate(45deg)';
+                plusIcon.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                plusIcon.style.transform = 'scale(1) rotate(0deg)';
             }
-            
-            // Final return to normal size with smoother timing
-            setTimeout(() => {
-                countButton.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                countButton.style.transform = 'translateX(-50%) scale(1)';
-                
-                if (plusIcon) {
-                    // Complete full 90-degree rotation and return to normal size
-                    plusIcon.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
-                    plusIcon.style.transform = 'scale(1) rotate(90deg)';
-                    
-                    // After rotation complete, reset without transition
-                    setTimeout(() => {
-                        plusIcon.style.transition = 'none';
-                        plusIcon.style.transform = 'scale(1) rotate(0)';
-                    }, 400);
-                }
-            }, 180);
-        }, 180);
+        }, 150);
     }
     
     // Revised function to process the click queue
