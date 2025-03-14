@@ -1905,12 +1905,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Explicitly adjust the threshold based on sensitivity
             let detectionThreshold;
             switch(audioSensitivity) {
-                case 1: detectionThreshold = 20; break; // Least sensitive
-                case 2: detectionThreshold = 17; break;
-                case 3: detectionThreshold = 14; break;
-                case 4: detectionThreshold = 10; break;
-                case 5: detectionThreshold = 5; break;  // Most sensitive
-                default: detectionThreshold = 14;       // Fallback
+                case 1: detectionThreshold = 40; break; // Extremely low sensitivity - requires very loud sounds
+                case 2: detectionThreshold = 30; break; // Low sensitivity - requires clear loud speech
+                case 3: detectionThreshold = 22; break; // Moderate sensitivity - requires normal speaking voice
+                case 4: detectionThreshold = 15; break; // Higher sensitivity - can detect quieter speech
+                case 5: detectionThreshold = 10; break; // Highest sensitivity - but still filters background noise
+                default: detectionThreshold = 22;       // Fallback to moderate sensitivity
             }
             
             // Map to height (5px to 40px)
@@ -1923,7 +1923,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const now = Date.now();
             // Detect transition from silence to audio (instead of continuous audio detection)
             if ((!lastAudioState && currentAudioState && !audioTriggerActive) || 
-                (audioSensitivity === 5 && firstBarHeight >= 4 && now - lastTriggerTime > 2000 && !audioTriggerActive)) {
+                (audioSensitivity === 5 && firstBarHeight >= 8 && now - lastTriggerTime > 2000 && !audioTriggerActive)) {
                 lastTriggerTime = now;
                 audioTriggerActive = true;
                 
