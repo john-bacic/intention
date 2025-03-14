@@ -280,9 +280,9 @@ h1 {
 /* Version indicator for git commit hash */
 .version-indicator {
     position: fixed;
-    bottom: 4px;
-    right: 10px;
-    font-size: 10px;
+    bottom: 40px;
+    right: 50px;
+    font-size: 12px;
     color: #777;
     opacity: 0.5;
     font-family: monospace;
