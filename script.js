@@ -1947,6 +1947,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // We'll keep a rolling average of audio levels for smoothing
         const smoothingBufferSize = 5;
         const audioLevels = [];
+        let baselineEstablished = false;
+        let baselineLevel = 0;
         
         // Function to update the visualizer
         function updateVisualizer() {
@@ -1974,9 +1976,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Convert RMS to decibels with some scaling
             const db = 20 * Math.log10(Math.max(rms, 0.0001)) + 90;
             
-            // Calculate amplification factor based on sensitivity setting
-            // Higher sensitivity = amplify quiet sounds more (1=low, 5=high)
-            let amplificationFactor = 0.1 + (audioSensitivity * 0.18); // Ranges from 0.1 (level 1) to 1.0 (level 5)
+            // Calculate amplification factor based on sensitivity setting (1-5 scale)
+            // Map exactly from 0.1 at level 1 to 1.0 at level 5
+            const amplificationFactor = 0.1 + ((audioSensitivity - 1) * (0.9 / 4));
             
             // Apply volume amplification
             const amplifiedFrequencyAvg = Math.round(frequencyAvg * amplificationFactor);
@@ -2009,11 +2011,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Visual indication of sound threshold being triggered
-            const visualizerContainer = document.getElementById('audio-visualizer-container');
+            // Establish baseline if not already done
+            if (!baselineEstablished && audioLevels.length === smoothingBufferSize) {
+                baselineLevel = smoothedAudioLevel < 30 ? smoothedAudioLevel : 25;
+                baselineEstablished = true;
+                console.log("Baseline audio level established:", baselineLevel);
+            }
+            
+            // Threshold for considering audio to be active (adjusts with sensitivity)
+            const activeThreshold = baselineLevel + 10 + (audioSensitivity * 3);
             
             // Determine if we're currently detecting sound based on smoothed level
-            const currentAudioState = smoothedAudioLevel > 50 - (audioSensitivity * 5);
+            const currentAudioState = smoothedAudioLevel > activeThreshold;
+            
+            // Visual indication of sound threshold being triggered
+            const visualizerContainer = document.getElementById('audio-visualizer-container');
             
             // Only track state changes with smoothing to avoid rapid flickering
             if (currentAudioState !== lastAudioState) {
@@ -2024,19 +2036,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Set a timeout to help with debouncing
                 audioStateChangeTimeout = setTimeout(() => {
-                    // If we're transitioning to silence after audio was detected
+                    // If we're transitioning TO silence after audio was detected
                     if (!currentAudioState && lastAudioState) {
-                        consecutiveSilenceCount++;
-                        console.log(`Silence detected (${consecutiveSilenceCount}/${silenceThreshold})`);
-                        
-                        // Only trigger after multiple consecutive silence periods
-                        if (consecutiveSilenceCount >= silenceThreshold) {
-                            console.log("Sufficient silence periods detected after speech");
-                            consecutiveSilenceCount = 0; // Reset counter
-                        }
-                    } else if (currentAudioState) {
-                        // Reset silence counter when audio is detected
-                        consecutiveSilenceCount = 0;
+                        // This means we just finished speaking - trigger the next number
+                        console.log("Audio returned to baseline - advancing counter");
+                        handleCountClickFromAudio();
                     }
                     
                     // Update the last state
@@ -2050,12 +2054,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             visualizerContainer.classList.remove('triggered');
                         }
                     }
-                }, 300); // 300ms debounce time
+                }, 500); // 500ms debounce time to ensure stable audio state change
             }
             
-            // Animation amplification factor based on sensitivity
-            // Higher sensitivity = more amplification of the visualizer
-            amplificationFactor = 0.1 + (audioSensitivity * 0.18); // Ranges from 0.1 to 1.0
+            // Animation amplification factor for visualization
+            const animationFactor = 0.1 + ((audioSensitivity - 1) * (0.9 / 4)); // 0.1 to 1.0 range
             
             // Calculate average frequency for each bar for visualization
             for (let i = 0; i < bars.length; i++) {
@@ -2072,7 +2075,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const average = sum / (endIndex - startIndex);
                 
                 // Apply scaling and amplification
-                const scaledHeight = Math.max(5, Math.min(40, average * 0.5 * amplificationFactor));
+                const scaledHeight = Math.max(5, Math.min(40, average * 0.5 * animationFactor));
                 
                 // Animate the bar height
                 bars[i].style.height = `${scaledHeight}px`;

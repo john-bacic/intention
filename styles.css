@@ -402,9 +402,9 @@ h1 {
 .audio-level-indicator {
     position: absolute;
     bottom: -18px;
-    left: 1px;
+    left: 0;
     right: 0;
-    text-align: left;
+    text-align: center;
     font-size: 12px;
     color: #E91E63;
     font-weight: bold;
