@@ -1905,12 +1905,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Explicitly adjust the threshold based on sensitivity
             let detectionThreshold;
             switch(audioSensitivity) {
-                case 1: detectionThreshold = 60; break; // Extremely low sensitivity - requires very loud speech
-                case 2: detectionThreshold = 45; break; // Low sensitivity - requires loud speech
-                case 3: detectionThreshold = 30; break; // Moderate sensitivity - can detect moderate soft voice
-                case 4: detectionThreshold = 18; break; // Higher sensitivity - can detect soft speech
-                case 5: detectionThreshold = 8; break;  // Highest sensitivity - can detect whispers
-                default: detectionThreshold = 30;       // Fallback to moderate sensitivity
+                case 1: detectionThreshold = 35; break; // Low sensitivity - picks up loud sounds
+                case 2: detectionThreshold = 25; break; // Below average sensitivity - requires normal speech
+                case 3: detectionThreshold = 18; break; // Medium sensitivity - can detect moderate soft voice
+                case 4: detectionThreshold = 12; break; // High sensitivity - can detect soft speech
+                case 5: detectionThreshold = 5; break;  // Very high sensitivity - can detect whispers
+                default: detectionThreshold = 18;       // Fallback to medium sensitivity
             }
             
             // Map to height (5px to 40px)
@@ -1923,7 +1923,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const now = Date.now();
             // Detect transition from silence to audio (instead of continuous audio detection)
             if ((!lastAudioState && currentAudioState && !audioTriggerActive) || 
-                (audioSensitivity === 5 && firstBarHeight >= 6 && now - lastTriggerTime > 2000 && !audioTriggerActive)) {
+                (audioSensitivity === 5 && firstBarHeight >= 3 && now - lastTriggerTime > 2000 && !audioTriggerActive)) {
                 lastTriggerTime = now;
                 audioTriggerActive = true;
                 
