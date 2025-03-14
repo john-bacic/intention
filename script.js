@@ -74,19 +74,12 @@ document.addEventListener('DOMContentLoaded', function() {
     let processingQueue = false;
     let isVoiceEnabled = false;
     let recognition = null;
-    let audioContext = null;
-    let analyser = null;
-    let microphone = null;
-    let microphoneStream = null; // Store the stream to properly close it
-    let animationId = null;
-    let audioSensitivity = 1; // Default sensitivity threshold (on 1-10 scale)
-    let audioTriggerActive = false; // Flag to prevent double counting
-    let lastAudioState = false; // false = silence, true = audio detected
-    let audioStateChangeTimeout = null; // Timeout for audio state changes
+    let isRecognitionActive = false;
     let fullTranscript = ""; // Store the full transcript for phrase detection
     let lastPhraseDetectionTime = 0; // To prevent duplicate triggers
     let lastFinalTranscriptTime = 0; // Track when we last received a final transcript
     let speechPauseThreshold = 2000; // Minimum pause in ms before processing (2 seconds)
+    let pendingSpeechTimeout = null; // Timeout for processing pending speech
     let userMotivation = '';
     let settings = { 
         darkMode: false, 
@@ -97,6 +90,16 @@ document.addEventListener('DOMContentLoaded', function() {
     let bigModeAnimationTimeout = null;
     // Track the last processed number for data consistency
     let lastProcessedNumber = 0;
+    // Audio context variables
+    let audioContext = null;
+    let analyser = null;
+    let microphone = null;
+    let microphoneStream = null; // Store the stream to properly close it
+    let animationId = null;
+    let audioSensitivity = 1; // Default sensitivity threshold (on 1-10 scale)
+    let audioTriggerActive = false; // Flag to prevent double counting
+    let lastAudioState = false; // false = silence, true = audio detected
+    let audioStateChangeTimeout = null; // Timeout for audio state changes
     
     // Helper functions
     function generateMutedColor() {
@@ -1692,29 +1695,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 let interimTranscript = '';
                 let finalTranscript = '';
                 
+                // Cancel any pending speech processing
+                if (pendingSpeechTimeout) {
+                    clearTimeout(pendingSpeechTimeout);
+                    pendingSpeechTimeout = null;
+                }
+                
                 // Process results
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     const transcript = event.results[i][0].transcript.trim().toLowerCase();
                     
                     if (event.results[i].isFinal) {
                         finalTranscript += transcript + ' ';
-                        lastFinalTranscriptTime = Date.now(); // Record the time we received the final transcript
-                        console.log("Final transcript:", finalTranscript);
-                        
-                        // Instead of processing immediately, set a timeout for the pause duration
-                        setTimeout(() => {
-                            // Only process if enough time has passed with no new final transcripts
-                            const timeSinceLastFinal = Date.now() - lastFinalTranscriptTime;
-                            if (timeSinceLastFinal >= speechPauseThreshold) {
-                                console.log(`Processing after pause of ${timeSinceLastFinal}ms:`, finalTranscript);
-                                processSpeechInput(finalTranscript);
-                            } else {
-                                console.log(`Skipping process - new speech detected within pause threshold`);
-                            }
-                        }, speechPauseThreshold);
+                        lastFinalTranscriptTime = Date.now();
+                        console.log("Received final transcript:", finalTranscript);
+                        fullTranscript += finalTranscript; // Add to the full transcript
                     } else {
                         interimTranscript += transcript;
                     }
+                }
+                
+                // Only schedule processing if we have a final transcript
+                if (finalTranscript) {
+                    // Wait for a significant pause before processing speech
+                    pendingSpeechTimeout = setTimeout(() => {
+                        console.log(`Processing after ${speechPauseThreshold}ms pause. Full transcript:`, fullTranscript);
+                        processSpeechInput(fullTranscript);
+                        // Reset the transcript after processing
+                        fullTranscript = "";
+                    }, speechPauseThreshold);
                 }
             };
             
