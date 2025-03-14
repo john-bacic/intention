@@ -255,17 +255,22 @@ h1 {
     width: 100%;
     padding: 12px;
     margin-bottom: 20px;
-    border: 1px solid #1C1C1C;
+    border: 1px solid #1C1C1C; /* Default solid border */
     border-radius: 4px;
     background-color: #1C1C1C;
     color: white;
-    /* font-family: 'Inconsolata', monospace; */
     font-size: 1em;
     resize: none;
     box-sizing: border-box;
     align-items: center;
     text-align: center;
+    outline: none; /* Remove default browser focus outline */
 }
+
+#user-sentence:focus {
+    border: 2px dashed #333; /* Dashed border on focus */
+}
+
 
 /* Italicize placeholder text */
 #user-sentence::placeholder {
