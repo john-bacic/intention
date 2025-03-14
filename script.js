@@ -1949,6 +1949,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const audioLevels = [];
         let baselineEstablished = false;
         let baselineLevel = 0;
+        let lastTriggerTime = 0; // Track last trigger time to prevent rapid firing
+        const triggerCooldown = 2000; // 2 second cooldown between triggers
         
         // Function to update the visualizer
         function updateVisualizer() {
@@ -2013,13 +2015,18 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Establish baseline if not already done
             if (!baselineEstablished && audioLevels.length === smoothingBufferSize) {
+                // If initial audio level is high, use a reasonable low value
                 baselineLevel = smoothedAudioLevel < 30 ? smoothedAudioLevel : 25;
                 baselineEstablished = true;
                 console.log("Baseline audio level established:", baselineLevel);
             }
             
             // Threshold for considering audio to be active (adjusts with sensitivity)
-            const activeThreshold = baselineLevel + 10 + (audioSensitivity * 3);
+            // Lower threshold when sensitivity is higher
+            const activeThreshold = baselineLevel + 15 - (audioSensitivity * 2);
+            
+            // Current time for cooldown check
+            const now = Date.now();
             
             // Determine if we're currently detecting sound based on smoothed level
             const currentAudioState = smoothedAudioLevel > activeThreshold;
@@ -2027,7 +2034,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // Visual indication of sound threshold being triggered
             const visualizerContainer = document.getElementById('audio-visualizer-container');
             
-            // Only track state changes with smoothing to avoid rapid flickering
+            // Display active state in UI
+            if (visualizerContainer) {
+                if (currentAudioState) {
+                    visualizerContainer.classList.add('triggered');
+                } else {
+                    visualizerContainer.classList.remove('triggered');
+                }
+            }
+            
+            // Handle audio state transitions
             if (currentAudioState !== lastAudioState) {
                 // Clear any pending timeouts to avoid race conditions
                 if (audioStateChangeTimeout) {
@@ -2038,23 +2054,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 audioStateChangeTimeout = setTimeout(() => {
                     // If we're transitioning TO silence after audio was detected
                     if (!currentAudioState && lastAudioState) {
-                        // This means we just finished speaking - trigger the next number
-                        console.log("Audio returned to baseline - advancing counter");
-                        handleCountClickFromAudio();
+                        // Check cooldown period
+                        if (now - lastTriggerTime > triggerCooldown) {
+                            console.log("Audio returned to baseline - advancing counter");
+                            handleCountClickFromAudio();
+                            lastTriggerTime = now;
+                        } else {
+                            console.log("Cooldown active, skipping trigger");
+                        }
                     }
                     
                     // Update the last state
                     lastAudioState = currentAudioState;
-                    
-                    // Update UI indicator
-                    if (visualizerContainer) {
-                        if (currentAudioState) {
-                            visualizerContainer.classList.add('triggered');
-                        } else {
-                            visualizerContainer.classList.remove('triggered');
-                        }
-                    }
-                }, 500); // 500ms debounce time to ensure stable audio state change
+                }, 300); // 300ms debounce time
             }
             
             // Animation amplification factor for visualization
