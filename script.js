@@ -85,6 +85,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let audioStateChangeTimeout = null; // Timeout for audio state changes
     let fullTranscript = ""; // Store the full transcript for phrase detection
     let lastPhraseDetectionTime = 0; // To prevent duplicate triggers
+    let lastFinalTranscriptTime = 0; // Track when we last received a final transcript
+    let speechPauseThreshold = 2000; // Minimum pause in ms before processing (2 seconds)
     let userMotivation = '';
     let settings = { 
         darkMode: false, 
@@ -1696,10 +1698,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     if (event.results[i].isFinal) {
                         finalTranscript += transcript + ' ';
+                        lastFinalTranscriptTime = Date.now(); // Record the time we received the final transcript
                         console.log("Final transcript:", finalTranscript);
                         
-                        // Process complete sentence for phrase detection
-                        processSpeechInput(finalTranscript);
+                        // Instead of processing immediately, set a timeout for the pause duration
+                        setTimeout(() => {
+                            // Only process if enough time has passed with no new final transcripts
+                            const timeSinceLastFinal = Date.now() - lastFinalTranscriptTime;
+                            if (timeSinceLastFinal >= speechPauseThreshold) {
+                                console.log(`Processing after pause of ${timeSinceLastFinal}ms:`, finalTranscript);
+                                processSpeechInput(finalTranscript);
+                            } else {
+                                console.log(`Skipping process - new speech detected within pause threshold`);
+                            }
+                        }, speechPauseThreshold);
                     } else {
                         interimTranscript += transcript;
                     }
