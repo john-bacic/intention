@@ -1676,112 +1676,124 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to initialize voice recognition
     function initVoiceRecognition() {
         try {
-            // Check if SpeechRecognition is supported
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                console.error('Speech recognition not supported in this browser.');
-                alert('Speech recognition is not supported in your browser.');
-                return false;
-            }
+            // Create speech recognition instance
+            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new window.SpeechRecognition();
             
-            // Create recognition instance
-            recognition = new SpeechRecognition();
-            recognition.lang = 'en-US';
+            // Configure speech recognition
             recognition.continuous = true;
             recognition.interimResults = true;
+            recognition.lang = 'en-US';
             
-            // Reset transcript when starting
-            fullTranscript = "";
-            
-            // Add event listeners
-            recognition.onresult = event => {
+            // Speech results event
+            recognition.onresult = function(event) {
                 let interimTranscript = '';
+                let finalTranscript = '';
                 
-                // Process all results
+                // Process results
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcriptPart = event.results[i][0].transcript.toLowerCase();
+                    const transcript = event.results[i][0].transcript.trim().toLowerCase();
                     
                     if (event.results[i].isFinal) {
-                        fullTranscript += transcriptPart + ' ';
-                    } else {
-                        interimTranscript += transcriptPart;
-                    }
-                }
-                
-                // Combined transcript for detection
-                const combinedTranscript = fullTranscript + interimTranscript;
-                console.log('Voice recognition transcript:', combinedTranscript);
-                
-                // Get the user's motivation or phrase to detect
-                const motivationField = document.getElementById('user-sentence');
-                const motivationText = motivationField.value.trim().toLowerCase();
-                
-                // Cooldown to prevent multiple triggers in quick succession
-                const now = Date.now();
-                const triggerCooldown = 2000; // 2 seconds cooldown
-                
-                if (motivationText) {
-                    // If there's text in the motivation field, check for that phrase
-                    if (containsPhrase(combinedTranscript, motivationText) && now - lastPhraseDetectionTime > triggerCooldown) {
-                        console.log(`Detected phrase: "${motivationText}"`);
-                        lastPhraseDetectionTime = now;
-                        handleCountClickFromAudio();
-                    }
-                } else {
-                    // Default behavior - look for specific keywords
-                    if ((containsPhrase(combinedTranscript, 'count') || 
-                         containsWordFollowedByNumber(combinedTranscript) ||
-                         containsPhrase(combinedTranscript, 'plus') || 
-                         containsPhrase(combinedTranscript, 'add')) && 
-                        now - lastPhraseDetectionTime > triggerCooldown) {
+                        finalTranscript += transcript + ' ';
+                        console.log("Final transcript:", finalTranscript);
                         
-                        lastPhraseDetectionTime = now;
-                        handleCountClickFromAudio();
+                        // Process complete sentence for phrase detection
+                        processSpeechInput(finalTranscript);
+                    } else {
+                        interimTranscript += transcript;
                     }
                 }
             };
             
-            recognition.onerror = event => {
-                console.error('Speech recognition error:', event.error);
+            // Handle errors
+            recognition.onerror = function(event) {
+                console.error('Speech recognition error', event.error);
+                
+                // If we get a no-speech error, restart after a delay
+                if (event.error === 'no-speech') {
+                    setTimeout(() => {
+                        try {
+                            if (isVoiceEnabled && !isRecognitionActive) {
+                                recognition.start();
+                                isRecognitionActive = true;
+                            }
+                        } catch (e) {
+                            console.error('Error restarting speech recognition', e);
+                        }
+                    }, 1000);
+                }
             };
             
-            recognition.onend = () => {
-                // Restart recognition if it's still enabled
+            // Handle when speech recognition ends
+            recognition.onend = function() {
+                isRecognitionActive = false;
+                console.log('Speech recognition ended');
+                
+                // Auto-restart recognition if it's still enabled
                 if (isVoiceEnabled) {
                     try {
-                        recognition.start();
+                        setTimeout(() => {
+                            recognition.start();
+                            isRecognitionActive = true;
+                            console.log('Speech recognition restarted');
+                        }, 500);
                     } catch (e) {
-                        console.error('Error restarting speech recognition:', e);
+                        console.error('Error restarting speech recognition', e);
                     }
                 }
             };
             
             // Start recognition
-            recognition.start();
+            if (isVoiceEnabled) {
+                recognition.start();
+                isRecognitionActive = true;
+                console.log('Speech recognition started');
+            }
             
             return true;
-        } catch (err) {
-            console.error('Error initializing voice recognition:', err);
+        } catch (error) {
+            console.error('Speech recognition initialization failed:', error);
             return false;
         }
     }
     
-    // Helper function to check if a transcript contains a phrase
-    function containsPhrase(transcript, phrase) {
-        // Use word boundary to detect the whole phrase
-        const regex = new RegExp(`\\b${escapeRegExp(phrase)}\\b`, 'i');
-        return regex.test(transcript);
-    }
-    
-    // Helper function to check if transcript contains a word followed by a number
-    function containsWordFollowedByNumber(transcript) {
-        // Match patterns like "count 1", "number 5", etc.
-        return /\b(count|number)\s+\d+\b/i.test(transcript);
-    }
-    
-    // Helper function to escape special characters for regex
-    function escapeRegExp(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Process speech input to detect phrases
+    function processSpeechInput(transcript) {
+        // Get the current time
+        const currentTime = new Date().getTime();
+        
+        // Check if enough time has passed since the last detection (3-second cooldown)
+        if (currentTime - lastPhraseDetectionTime < 3000) {
+            console.log("Cooldown active, ignoring phrase");
+            return;
+        }
+        
+        console.log("Processing complete sentence:", transcript);
+        
+        // Check for match with user motivation phrase (if set)
+        if (userMotivation && userMotivation.trim() !== '') {
+            const motivationPhrases = userMotivation.toLowerCase().split(',');
+            
+            for (const phrase of motivationPhrases) {
+                const trimmedPhrase = phrase.trim();
+                if (trimmedPhrase && transcript.includes(trimmedPhrase)) {
+                    console.log(`Detected motivation phrase: ${trimmedPhrase}`);
+                    handleCountClickFromAudio();
+                    lastPhraseDetectionTime = currentTime;
+                    return;
+                }
+            }
+        }
+        
+        // Default detection for "count" if no motivation is set or as fallback
+        if ((!userMotivation || userMotivation.trim() === '') && 
+            (transcript.includes('count') || transcript.includes('next'))) {
+            console.log("Detected default 'count' command");
+            handleCountClickFromAudio();
+            lastPhraseDetectionTime = currentTime;
+            return;
+        }
     }
     
     // Function to toggle voice recognition
