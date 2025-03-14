@@ -1691,10 +1691,18 @@ document.addEventListener('DOMContentLoaded', function() {
         let isSpeaking = false;
         const PAUSE_THRESHOLD = 1500; // milliseconds to wait after speech stops before processing
         
+        // Get transcript display element
+        const transcriptEl = document.getElementById('speech-transcript');
+        const transcriptContainer = document.getElementById('speech-transcript-container');
+        
         // Speech recognition start event
         recognition.onstart = function() {
             console.log('Voice recognition started');
             isRecognitionActive = true;
+            if (transcriptEl) {
+                transcriptEl.textContent = 'Listening...';
+                transcriptContainer.classList.add('speech-active');
+            }
         };
         
         // Speech recognition result event
@@ -1709,10 +1717,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             let transcript = '';
             let isFinal = false;
+            let confidence = 0;
             
             // Get the latest results
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 transcript += event.results[i][0].transcript;
+                confidence = event.results[i][0].confidence; // Store confidence level
                 if (event.results[i].isFinal) {
                     isFinal = true;
                 }
@@ -1721,16 +1731,37 @@ document.addEventListener('DOMContentLoaded', function() {
             // Convert to lowercase for easier matching
             transcript = transcript.toLowerCase().trim();
             
+            // Filter out noise at high sensitivity levels
+            if (audioSensitivity >= 4 && (confidence < 0.3 || transcript.length < 2)) {
+                console.log('Low quality detection at high sensitivity - confidence:', confidence, 'length:', transcript.length);
+                if (transcriptEl) {
+                    transcriptEl.textContent = 'Background noise detected (ignored at high sensitivity)';
+                }
+                return;
+            }
+            
             // Save potential trigger phrase
             if (transcript && transcript.length > 0) {
                 potentialTriggerPhrase = transcript;
                 fullTranscript = transcript; // Update full transcript for reference
-                console.log('Potential phrase detected:', potentialTriggerPhrase);
+                console.log('Potential phrase detected:', potentialTriggerPhrase, 'confidence:', confidence);
+                
+                // Update transcript display
+                if (transcriptEl) {
+                    transcriptEl.textContent = 'Heard: "' + transcript + '"';
+                    transcriptEl.classList.add('speech-update');
+                    setTimeout(() => {
+                        transcriptEl.classList.remove('speech-update');
+                    }, 1000);
+                }
             }
             
             // Set pause timer to process after speech stops
             pauseTimer = setTimeout(() => {
                 isSpeaking = false;
+                if (transcriptEl) {
+                    transcriptEl.textContent += ' (processing...)';
+                }
                 processTranscript(potentialTriggerPhrase);
                 potentialTriggerPhrase = '';
                 pauseTimer = null;
@@ -1742,8 +1773,18 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Voice recognition ended');
             isRecognitionActive = false;
             
+            if (transcriptEl) {
+                transcriptContainer.classList.remove('speech-active');
+                if (!isVoiceEnabled) {
+                    transcriptEl.textContent = 'Voice recognition is disabled';
+                }
+            }
+            
             // Process any pending speech after a complete stop
             if (potentialTriggerPhrase && !isSpeaking) {
+                if (transcriptEl) {
+                    transcriptEl.textContent += ' (processing...)';
+                }
                 processTranscript(potentialTriggerPhrase);
                 potentialTriggerPhrase = '';
             }
@@ -1762,7 +1803,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             recognition.start();
                             isRecognitionActive = true;
                         } catch (err) {
-                            console.error('Failed to restart voice recognition after delay:', err);
+                            console.error('Failed to restart voice recognition after error:', err);
                         }
                     }, 1000);
                 }
@@ -1775,6 +1816,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (event.error === 'no-speech') {
                 // No speech detected, this is normal
                 return;
+            }
+            
+            if (transcriptEl) {
+                transcriptEl.textContent = 'Error: ' + event.error;
             }
             
             isRecognitionActive = false;
@@ -1802,6 +1847,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error starting voice recognition:', e);
                 return false;
             }
+        } else if (transcriptEl) {
+            transcriptEl.textContent = 'Voice recognition is disabled';
         }
         
         return true;
@@ -1811,38 +1858,83 @@ document.addEventListener('DOMContentLoaded', function() {
     function processTranscript(transcript) {
         if (!transcript || transcript.length === 0) return;
         
+        // Get transcript display element
+        const transcriptEl = document.getElementById('speech-transcript');
+        
         console.log('Processing transcript after pause:', transcript);
+        
+        // Additional filtering for high sensitivity levels
+        // At higher sensitivity, require more checks to prevent false triggers
+        if (audioSensitivity >= 4) {
+            // Check for very short transcripts which are likely noise
+            if (transcript.length < 3) {
+                console.log('Ignoring very short transcript at high sensitivity level:', transcript);
+                if (transcriptEl) {
+                    transcriptEl.textContent = 'Background noise detected (ignored at sensitivity level ' + audioSensitivity + ')';
+                }
+                return;
+            }
+            
+            // Check for common noise patterns at high sensitivity
+            const noisePatterns = [' ', '.', ',', '?', '!', 'a', 'um', 'uh', 'hmm'];
+            if (noisePatterns.includes(transcript)) {
+                console.log('Ignoring common noise pattern at high sensitivity level:', transcript);
+                if (transcriptEl) {
+                    transcriptEl.textContent = 'Background noise detected (ignored at sensitivity level ' + audioSensitivity + ')';
+                }
+                return;
+            }
+        }
         
         // Get the current time to prevent multiple triggers
         const currentTime = new Date().getTime();
         if (currentTime - lastPhraseDetectionTime < 2000) {
             console.log('Ignoring trigger - too soon after last one');
+            if (transcriptEl) {
+                transcriptEl.textContent = 'Heard: "' + transcript + '" (ignored - too soon)';
+            }
             return;
         }
         
         let phraseDetected = false;
-        const motivationPhrase = userMotivation.toLowerCase();
+        // Get user motivation phrase from input field
+        const motivationField = document.getElementById('user-sentence');
+        const motivationPhrase = motivationField ? motivationField.value.trim().toLowerCase() : '';
+        let detectedPhrase = '';
         
-        // If user has set a motivation phrase, check for that
+        // Check for exact match with user's motivation phrase
+        // Only process if there is a motivation phrase set
         if (motivationPhrase && motivationPhrase.length > 0) {
-            if (transcript.includes(motivationPhrase)) {
+            // Use exact text matching instead of inclusion
+            if (transcript === motivationPhrase) {
                 phraseDetected = true;
-                console.log('Motivation phrase detected:', motivationPhrase);
+                detectedPhrase = motivationPhrase;
+                console.log('Exact match with motivation phrase detected:', motivationPhrase);
+            } else {
+                console.log('No exact match with motivation phrase:', motivationPhrase);
+                if (transcriptEl) {
+                    transcriptEl.textContent = 'Heard: "' + transcript + '" (not an exact match with "' + motivationPhrase + '")';
+                }
             }
-        } 
-        // Otherwise check for default triggers
-        else if (transcript.includes('count') || 
-                 transcript.includes('mark') || 
-                 transcript.includes('add one') || 
-                 transcript.includes('plus one')) {
-            phraseDetected = true;
-            console.log('Default trigger phrase detected');
+        } else {
+            console.log('No motivation phrase set. Set a phrase to enable counting.');
+            if (transcriptEl) {
+                transcriptEl.textContent = 'No trigger phrase set. Enter a phrase in the "I say" field.';
+            }
         }
         
         // If a phrase was detected, increment counter
         if (phraseDetected) {
             lastPhraseDetectionTime = currentTime;
             incrementCounter();
+            
+            if (transcriptEl) {
+                transcriptEl.textContent = 'Matched: "' + detectedPhrase + '" ✓ Count increased!';
+                transcriptEl.classList.add('speech-update');
+                setTimeout(() => {
+                    transcriptEl.classList.remove('speech-update');
+                }, 1000);
+            }
         }
     }
     
