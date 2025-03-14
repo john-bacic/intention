@@ -79,14 +79,18 @@ document.addEventListener('DOMContentLoaded', function() {
     let microphone = null;
     let microphoneStream = null; // Store the stream to properly close it
     let animationId = null;
-    let audioSensitivity = 5; // Default sensitivity threshold (on 1-10 scale)
+    let audioSensitivity = 1; // Default sensitivity threshold (on 1-10 scale)
     let audioTriggerActive = false; // Flag to prevent double counting
     let lastAudioState = false; // false = silence, true = audio detected
     let audioStateChangeTimeout = null; // Timeout for audio state changes
     let fullTranscript = ""; // Store the full transcript for phrase detection
     let lastPhraseDetectionTime = 0; // To prevent duplicate triggers
     let userMotivation = '';
-    let settings = { darkMode: false, displayMode: 'random' };
+    let settings = { 
+        darkMode: false, 
+        displayMode: 'random', 
+        audioSensitivity: 1 
+    };
     let isAnimating = false;
     let bigModeAnimationTimeout = null;
     // Track the last processed number for data consistency
@@ -261,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     dayData = parsed.dayData || [];
                     currentDay = parsed.currentDay || 1;
                     userMotivation = parsed.userMotivation || '';
-                    settings = parsed.settings || { darkMode: false, displayMode: 'random' };
+                    settings = parsed.settings || { darkMode: false, displayMode: 'random', audioSensitivity: 1 };
                     
                     // Ensure we have valid dayData
                     if (!Array.isArray(dayData) || dayData.length === 0) {
@@ -406,7 +410,7 @@ document.addEventListener('DOMContentLoaded', function() {
             initializeData();
             currentDay = 1;
             userMotivation = '';
-            settings = { darkMode: false, displayMode: 'random' };
+            settings = { darkMode: false, displayMode: 'random', audioSensitivity: 1 };
             
             // Still update the UI to avoid hanging
             updateUI();
@@ -1883,18 +1887,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Function to handle sensitivity change
-    function handleSensitivityChange(event) {
-        // Direct sensitivity value (1-5 scale)
-        audioSensitivity = parseInt(event.target.value);
+    function handleSensitivityChange() {
+        const sensitivitySlider = document.getElementById('audio-sensitivity');
+        const sensitivityValue = document.getElementById('sensitivity-value');
         
-        // Update the displayed value
-        const sensitivityValueElement = document.getElementById('sensitivity-value');
-        if (sensitivityValueElement) {
-            sensitivityValueElement.textContent = audioSensitivity;
-        }
+        audioSensitivity = parseInt(sensitivitySlider.value);
+        sensitivityValue.textContent = audioSensitivity;
         
-        // Save to local storage
-        localStorage.setItem('audioSensitivity', audioSensitivity);
+        // Save to settings
+        settings.audioSensitivity = audioSensitivity;
+        saveSettings();
+        
+        console.log("Audio sensitivity set to:", audioSensitivity);
     }
     
     // Function to visualize audio
@@ -2247,6 +2251,70 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('Error fetching commit hash:', error);
             });
+    }
+    
+    // Function to apply settings to UI
+    function applySettingsToUI() {
+        // Apply dark mode if enabled
+        if (settings.darkMode) {
+            document.body.classList.add('dark-mode');
+            document.getElementById('dark-mode-toggle').classList.add('active');
+        } else {
+            document.body.classList.remove('dark-mode');
+            document.getElementById('dark-mode-toggle').classList.remove('active');
+        }
+        
+        // Apply display mode
+        const displayMode = settings.displayMode || 'grid';
+        if (displayMode === 'grid') {
+            document.getElementById('grid-toggle').classList.add('active');
+            document.getElementById('number-toggle').classList.remove('active');
+        } else {
+            document.getElementById('grid-toggle').classList.remove('active');
+            document.getElementById('number-toggle').classList.add('active');
+        }
+        
+        // Apply voice settings
+        isVoiceEnabled = settings.voiceEnabled || false;
+        if (isVoiceEnabled) {
+            document.getElementById('voice-toggle').classList.add('active');
+        } else {
+            document.getElementById('voice-toggle').classList.remove('active');
+        }
+        
+        // Apply audio sensitivity setting - explicitly set to 1 if not defined
+        if (typeof settings.audioSensitivity === 'undefined') {
+            settings.audioSensitivity = 1;
+        }
+        audioSensitivity = settings.audioSensitivity;
+        
+        // Update sensitivity slider and display
+        const sensitivitySlider = document.getElementById('audio-sensitivity');
+        const sensitivityValue = document.getElementById('sensitivity-value');
+        if (sensitivitySlider) sensitivitySlider.value = audioSensitivity;
+        if (sensitivityValue) sensitivityValue.textContent = audioSensitivity;
+        
+        // Apply today-only view setting
+        if (settings.showTodayOnly) {
+            document.getElementById('today-toggle').classList.add('active');
+        } else {
+            document.getElementById('today-toggle').classList.remove('active');
+        }
+        
+        // Update the display
+        updateDisplayMode();
+    }
+    
+    // Event handler for sensitivity slider change
+    function handleSensitivityChange(event) {
+        audioSensitivity = parseInt(event.target.value);
+        document.getElementById('sensitivity-value').textContent = audioSensitivity;
+        
+        // Save the new sensitivity setting
+        settings.audioSensitivity = audioSensitivity;
+        saveSettings();
+        
+        console.log("Audio sensitivity set to:", audioSensitivity);
     }
     
     initializeApp();
