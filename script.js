@@ -1783,78 +1783,100 @@ document.addEventListener('DOMContentLoaded', function() {
         const audioVisualizer = document.getElementById('audio-visualizer');
         const audioVisualizerSpacer = document.getElementById('audio-visualizer-spacer');
         
-        // Set state based on force parameter or toggle current state
+        // Set voice enabled based on force parameter or toggle current state
         isVoiceEnabled = force !== null ? force : !isVoiceEnabled;
+        document.getElementById('voice-toggle').classList.toggle('active', isVoiceEnabled);
         
         if (isVoiceEnabled) {
-            // Initialize voice recognition if needed
-            if (!recognition && !initVoiceRecognition()) {
-                isVoiceEnabled = false;
-                voiceToggle.classList.remove('active');
-                return;
+            console.log("Voice recognition enabled");
+            
+            // Ensure audio context is activated and microphone permissions are granted
+            if (!audioContext || !analyser) {
+                console.log("Initializing audio system...");
+                
+                // Set up audio detection from scratch
+                setupAudioDetection()
+                    .then(() => {
+                        console.log("Audio detection setup complete");
+                        document.getElementById('audio-visualizer').classList.add('active');
+                    })
+                    .catch(err => {
+                        console.error("Failed to setup audio detection:", err);
+                    });
+            } else {
+                // Resume existing audio context if it's suspended
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume().then(() => {
+                        console.log("Audio context resumed");
+                    });
+                }
+                document.getElementById('audio-visualizer').classList.add('active');
             }
             
-            // Reset transcript when starting
-            fullTranscript = "";
-            lastPhraseDetectionTime = 0;
+            // Initialize speech recognition
+            if (!recognition) {
+                initVoiceRecognition();
+            }
             
-            // Use the new function to completely reset and reinitialize audio system
-            resetAudioSystem()
-                .then(success => {
-                    if (success) {
-                        // Show visualizer
-                        audioVisualizer.style.display = 'flex';
-                        audioVisualizerSpacer.style.display = 'block';
-                        
-                        // Update button style
-                        voiceToggle.classList.add('active');
-                    } else {
-                        isVoiceEnabled = false;
-                        voiceToggle.classList.remove('active');
-                    }
-                })
-                .catch(err => {
-                    console.error('Error resetting audio system:', err);
-                    isVoiceEnabled = false;
-                    voiceToggle.classList.remove('active');
-                });
+            // Start recognition if it's available and not already running
+            if (recognition && !isRecognitionActive) {
+                try {
+                    recognition.start();
+                    isRecognitionActive = true;
+                    console.log("Started speech recognition");
+                } catch (e) {
+                    console.error("Error starting recognition:", e);
+                    // If we encounter an error, try re-initializing
+                    setTimeout(() => {
+                        initVoiceRecognition();
+                        try {
+                            recognition.start();
+                            isRecognitionActive = true;
+                        } catch (e) {
+                            console.error("Failed to restart recognition after error:", e);
+                        }
+                    }, 500);
+                }
+            }
+            
+            // Set amplitude display to default
+            const audioLevelIndicator = document.getElementById('audio-level-indicator');
+            if (audioLevelIndicator) {
+                audioLevelIndicator.textContent = "Listening...";
+                audioLevelIndicator.style.color = "#4CAF50"; // Green
+            }
         } else {
-            // Hide visualizer
-            audioVisualizer.style.display = 'none';
-            audioVisualizerSpacer.style.display = 'none';
-            
-            // Update button style
-            voiceToggle.classList.remove('active');
-            
-            // Clean up audio resources
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-                animationId = null;
-            }
-            
-            if (audioContext && audioContext.state === 'running') {
-                audioContext.suspend();
-            }
-            
-            // Disconnect microphone to fully stop audio input
-            if (microphone) {
-                microphone.disconnect();
-                microphone = null;
-            }
-            
-            // Stop all tracks in the microphone stream
-            if (microphoneStream) {
-                microphoneStream.getTracks().forEach(track => {
-                    track.stop();
-                });
-                microphoneStream = null;
-            }
+            console.log("Voice recognition disabled");
             
             // Stop recognition if it's running
-            if (recognition) {
-                recognition.stop();
+            if (recognition && isRecognitionActive) {
+                try {
+                    recognition.stop();
+                    isRecognitionActive = false;
+                    console.log("Stopped speech recognition");
+                } catch (e) {
+                    console.error("Error stopping recognition:", e);
+                }
+            }
+            
+            // Reset visualizer and remove active class
+            const bars = document.querySelectorAll('.audio-visualizer .bar');
+            bars.forEach(bar => {
+                bar.style.height = '5px';
+            });
+            document.getElementById('audio-visualizer').classList.remove('active');
+            
+            // Set amplitude display to inactive
+            const audioLevelIndicator = document.getElementById('audio-level-indicator');
+            if (audioLevelIndicator) {
+                audioLevelIndicator.textContent = "Voice Off";
+                audioLevelIndicator.style.color = "#777";
             }
         }
+        
+        // Save settings
+        settings.voiceEnabled = isVoiceEnabled;
+        saveSettings();
     }
     
     // Function to handle sensitivity change
@@ -1922,8 +1944,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const frequencyAvg = Math.round(frequencySum / frequencyData.length);
             
+            // Calculate amplification factor based on sensitivity setting
+            // Higher sensitivity = amplify quiet sounds more (1=low, 5=high)
+            let amplificationFactor = 0.2 + (audioSensitivity * 0.3); // Ranges from 0.5 to 1.7
+            
+            // Apply volume amplification
+            const amplifiedFrequencyAvg = Math.round(frequencyAvg * amplificationFactor);
+            const amplifiedDb = Math.round(db * amplificationFactor);
+            
             // Final audio level to display - use the larger of the two values for better visibility
-            const audioLevel = Math.max(db, frequencyAvg);
+            const audioLevel = Math.max(amplifiedDb, amplifiedFrequencyAvg);
             
             // Always update the level indicator with the current value
             if (audioLevelIndicator) {
@@ -1953,24 +1983,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 firstBarSum += frequencyData[j];
             }
             
-            // Calculate average for first bar
+            // Calculate average for first bar 
             const firstBarAvg = firstBarSum / (firstBarEnd - firstBarStart);
             
-            // Explicitly adjust the threshold based on sensitivity
-            let detectionThreshold;
-            switch(audioSensitivity) {
-                case 1: detectionThreshold = 35; break; // Low sensitivity - picks up loud sounds
-                case 2: detectionThreshold = 25; break; // Below average sensitivity - requires normal speech
-                case 3: detectionThreshold = 18; break; // Medium sensitivity - can detect moderate soft voice
-                case 4: detectionThreshold = 12; break; // High sensitivity - can detect soft speech
-                case 5: detectionThreshold = 5; break;  // Very high sensitivity - can detect whispers
-                default: detectionThreshold = 18;       // Fallback to medium sensitivity
-            }
+            // Apply amplification based on sensitivity setting
+            const amplifiedFirstBarAvg = firstBarAvg * amplificationFactor;
+            
+            // Fixed detection threshold (since sensitivity now controls amplification instead)
+            const detectionThreshold = 20; // A moderate threshold that works with amplification
             
             // Map to height (5px to 40px)
-            const firstBarHeight = Math.max(5, Math.min(40, firstBarAvg * 0.4));
+            const firstBarHeight = Math.max(5, Math.min(40, amplifiedFirstBarAvg * 0.4));
             
-            // Determine current audio state based on the height and sensitivity threshold
+            // Determine current audio state based on the height and threshold
             const currentAudioState = firstBarHeight >= detectionThreshold;
             
             // For debugging, log the current db level
@@ -2001,7 +2026,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Animation amplification factor based on sensitivity
             // Higher sensitivity = more amplification of the visualizer
-            const amplificationFactor = 0.25 + (audioSensitivity * 0.15);
+            amplificationFactor = 0.25 + (audioSensitivity * 0.15);
             
             // Calculate average frequency for each bar for visualization
             for (let i = 0; i < bars.length; i++) {
@@ -2032,9 +2057,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Calculate average
                 const avg = sum / (end - start);
                 
-                // Map to bar height with amplification based on sensitivity
-                // More sensitive = more exaggerated movements
-                const height = Math.max(5, Math.min(40, avg * amplificationFactor));
+                // Apply volume amplification based on sensitivity level
+                const amplifiedAvg = avg * amplificationFactor;
+                
+                // Map to bar height with amplification
+                // More sensitive = taller bars for the same input
+                const height = Math.max(5, Math.min(40, amplifiedAvg * 0.4));
                 
                 // Apply height to bar
                 bars[i].style.height = `${height}px`;
@@ -2115,5 +2143,87 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
     
+    // Function for audio detection setup - returns Promise so we can await completion
+    function setupAudioDetection() {
+        return new Promise((resolve, reject) => {
+            try {
+                // Create audio context
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Debug: Log that we're attempting to access the microphone
+                console.log("Attempting to access microphone...");
+                
+                // Resume audio context (needed in some browsers due to autoplay policy)
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume().then(() => {
+                        console.log("Audio context resumed successfully");
+                    }).catch(err => {
+                        console.error("Failed to resume audio context:", err);
+                    });
+                }
+                
+                // Get access to microphone with explicit error handling
+                navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+                    .then(function(stream) {
+                        console.log("Microphone access granted");
+                        
+                        // Create analyzer node with appropriate settings
+                        analyser = audioContext.createAnalyser();
+                        analyser.fftSize = 256; // Must be power of 2
+                        analyser.smoothingTimeConstant = 0.8; // Smooth transitions
+                        
+                        // Connect microphone to analyzer
+                        const microphone = audioContext.createMediaStreamSource(stream);
+                        microphone.connect(analyser);
+                        
+                        // Keep track of audio state
+                        lastAudioState = false;
+                        
+                        // Additional debugging 
+                        console.log("Microphone connected successfully:", 
+                                    "FFT size:", analyser.fftSize, 
+                                    "Frequency bin count:", analyser.frequencyBinCount);
+                        
+                        // Get bars for visualization
+                        const bars = document.querySelectorAll('.audio-visualizer .bar');
+                        
+                        // Start visualization if we have bars
+                        if (bars.length > 0) {
+                            visualizeAudio(bars);
+                            console.log("Audio visualization started with", bars.length, "bars");
+                            
+                            // Make the audio indicator visible
+                            const audioLevelIndicator = document.getElementById('audio-level-indicator');
+                            if (audioLevelIndicator) {
+                                audioLevelIndicator.style.opacity = '1';
+                                audioLevelIndicator.textContent = "Listening...";
+                            }
+                        } else {
+                            console.warn("No visualizer bars found in the DOM");
+                        }
+                        
+                        resolve(true); // Successfully set up audio
+                    })
+                    .catch(function(err) {
+                        console.error("Error accessing microphone:", err);
+                        
+                        // Update UI to show error
+                        const audioLevelIndicator = document.getElementById('audio-level-indicator');
+                        if (audioLevelIndicator) {
+                            audioLevelIndicator.textContent = "Mic denied";
+                            audioLevelIndicator.style.color = "#ff0000";
+                            audioLevelIndicator.style.opacity = '1';
+                        }
+                        
+                        reject(err);
+                    });
+            } catch (error) {
+                console.error("Error setting up audio detection:", error);
+                reject(error);
+            }
+        });
+    }
+    
+    // Initialize app
     initializeApp();
 });
