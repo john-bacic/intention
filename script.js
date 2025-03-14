@@ -118,6 +118,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update the UI
         updateUI();
         
+        // Fetch latest commit hash from GitHub
+        fetchLatestCommitHash();
+        
         // Set initial display based on display mode
         const squaresGrid = document.getElementById('squares-grid');
         const bigNumberDisplay = document.querySelector('.big-number-display');
@@ -2224,6 +2227,27 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Initialize app
+    // Function to fetch the latest commit hash from GitHub
+    function fetchLatestCommitHash() {
+        fetch('https://api.github.com/repos/john-bacic/intention/commits/master')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                const commitHash = data.sha.substring(0, 7); // Get short hash
+                const versionIndicator = document.getElementById('version-indicator');
+                if (versionIndicator) {
+                    versionIndicator.textContent = commitHash;
+                }
+                console.log('Latest commit hash:', commitHash);
+            })
+            .catch(error => {
+                console.error('Error fetching commit hash:', error);
+            });
+    }
+    
     initializeApp();
 });
