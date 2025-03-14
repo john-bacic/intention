@@ -1946,7 +1946,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Calculate amplification factor based on sensitivity setting
             // Higher sensitivity = amplify quiet sounds more (1=low, 5=high)
-            let amplificationFactor = 0.2 + (audioSensitivity * 0.3); // Ranges from 0.5 to 1.7
+            let amplificationFactor = 0.1 + (audioSensitivity * 0.18); // Ranges from 0.1 (level 1) to 1.0 (level 5)
             
             // Apply volume amplification
             const amplifiedFrequencyAvg = Math.round(frequencyAvg * amplificationFactor);
@@ -2026,7 +2026,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Animation amplification factor based on sensitivity
             // Higher sensitivity = more amplification of the visualizer
-            amplificationFactor = 0.25 + (audioSensitivity * 0.15);
+            amplificationFactor = 0.1 + (audioSensitivity * 0.18); // Ranges from 0.1 to 1.0
             
             // Calculate average frequency for each bar for visualization
             for (let i = 0; i < bars.length; i++) {
