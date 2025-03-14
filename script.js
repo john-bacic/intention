@@ -78,8 +78,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let fullTranscript = ""; // Store the full transcript for phrase detection
     let lastPhraseDetectionTime = 0; // To prevent duplicate triggers
     let lastFinalTranscriptTime = 0; // Track when we last received a final transcript
-    let speechPauseThreshold = 2000; // Minimum pause in ms before processing (2 seconds)
+    let speechPauseThreshold = 3000; // Increased pause to 3 seconds before processing
     let pendingSpeechTimeout = null; // Timeout for processing pending speech
+    let consecutiveSilenceCount = 0; // Count consecutive silent periods
+    let silenceThreshold = 3; // How many consecutive silence periods needed before advancing
     let userMotivation = '';
     let settings = { 
         darkMode: false, 
@@ -1784,8 +1786,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Get the current time
         const currentTime = new Date().getTime();
         
-        // Check if enough time has passed since the last detection (3-second cooldown)
-        if (currentTime - lastPhraseDetectionTime < 3000) {
+        // Check if enough time has passed since the last detection (5-second cooldown)
+        if (currentTime - lastPhraseDetectionTime < 5000) {
             console.log("Cooldown active, ignoring phrase");
             return;
         }
@@ -1936,53 +1938,41 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to visualize audio
     function visualizeAudio(bars) {
-        // Create data array for time domain data
-        const timeDomainData = new Uint8Array(analyser.fftSize);
+        if (!analyser) return;
         
-        // Create data array for frequency data
+        // Create buffers for audio analysis
         const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+        const timeData = new Uint8Array(analyser.fftSize);
         
-        // Variables for audio-triggered counting
-        let lastTriggerTime = 0;
-        const triggerCooldown = 1000; // 1 second cooldown between triggers to prevent rapid counting
+        // We'll keep a rolling average of audio levels for smoothing
+        const smoothingBufferSize = 5;
+        const audioLevels = [];
         
-        // Get the audio level indicator element
-        const audioLevelIndicator = document.getElementById('audio-level-indicator');
-        
-        // Debug confirmation 
-        console.log("Audio visualization started, indicator:", audioLevelIndicator);
-        
-        // Function to render the visualization
-        function render() {
-            // Only continue if voice is enabled
-            if (!isVoiceEnabled) return;
+        // Function to update the visualizer
+        function updateVisualizer() {
+            if (!analyser) return;
             
-            // Get time domain data for volume calculation
-            analyser.getByteTimeDomainData(timeDomainData);
-            
-            // Get frequency data for visualization
+            // Get frequency and time domain data
             analyser.getByteFrequencyData(frequencyData);
+            analyser.getByteTimeDomainData(timeData);
             
-            // Calculate volume from time domain data
-            let sumSquares = 0;
-            for (let i = 0; i < timeDomainData.length; i++) {
-                // Convert from 0-255 to -1 to 1
-                const amplitude = ((timeDomainData[i] / 128.0) - 1.0);
-                sumSquares += amplitude * amplitude;
-            }
-            
-            // Calculate RMS (root mean square)
-            const rms = Math.sqrt(sumSquares / timeDomainData.length);
-            
-            // Convert to decibels (logarithmic scale) and ensure values are positive
-            let db = Math.max(0, Math.round(20 * Math.log10(rms + 0.0001)));
-            
-            // Alternative method: use the raw frequency data average
+            // Calculate average frequency for visualization
             let frequencySum = 0;
             for (let i = 0; i < frequencyData.length; i++) {
                 frequencySum += frequencyData[i];
             }
-            const frequencyAvg = Math.round(frequencySum / frequencyData.length);
+            const frequencyAvg = frequencySum / frequencyData.length;
+            
+            // Calculate RMS from time domain data for better level detection
+            let rms = 0;
+            for (let i = 0; i < timeData.length; i++) {
+                const amplitude = (timeData[i] - 128) / 128; // Convert to -1 to 1 range
+                rms += amplitude * amplitude;
+            }
+            rms = Math.sqrt(rms / timeData.length);
+            
+            // Convert RMS to decibels with some scaling
+            const db = 20 * Math.log10(Math.max(rms, 0.0001)) + 90;
             
             // Calculate amplification factor based on sensitivity setting
             // Higher sensitivity = amplify quiet sounds more (1=low, 5=high)
@@ -1992,77 +1982,76 @@ document.addEventListener('DOMContentLoaded', function() {
             const amplifiedFrequencyAvg = Math.round(frequencyAvg * amplificationFactor);
             const amplifiedDb = Math.round(db * amplificationFactor);
             
-            // Final audio level to display - use the larger of the two values for better visibility
-            const audioLevel = Math.max(amplifiedDb, amplifiedFrequencyAvg);
+            // Add to rolling average buffer
+            audioLevels.push(amplifiedDb);
+            if (audioLevels.length > smoothingBufferSize) {
+                audioLevels.shift(); // Remove oldest entry
+            }
             
-            // Always update the level indicator with the current value
+            // Calculate smoothed audio level
+            const smoothedAudioLevel = audioLevels.reduce((sum, val) => sum + val, 0) / audioLevels.length;
+            
+            // Update audio level indicator with smoothed value
+            const audioLevelIndicator = document.getElementById('audio-level-indicator');
             if (audioLevelIndicator) {
-                // Show decibels
-                audioLevelIndicator.textContent = audioLevel + ' dB';
+                // Show the dB level as text
+                audioLevelIndicator.textContent = `${Math.round(smoothedAudioLevel)} dB`;
                 
-                // Change color based on level
-                if (audioLevel > 40) {
-                    audioLevelIndicator.style.color = '#4CAF50'; // Green for high volume
-                } else if (audioLevel > 20) {
-                    audioLevelIndicator.style.color = '#FFA000'; // Orange for medium volume
+                // Color based on level
+                if (smoothedAudioLevel < 30) {
+                    audioLevelIndicator.style.color = "#999"; // Grey for very quiet
+                } else if (smoothedAudioLevel < 50) {
+                    audioLevelIndicator.style.color = "#4CAF50"; // Green for normal
+                } else if (smoothedAudioLevel < 70) {
+                    audioLevelIndicator.style.color = "#FF9800"; // Orange for loud
                 } else {
-                    audioLevelIndicator.style.color = '#E91E63'; // Pink for low volume
+                    audioLevelIndicator.style.color = "#F44336"; // Red for very loud
+                }
+            }
+            
+            // Visual indication of sound threshold being triggered
+            const visualizerContainer = document.getElementById('audio-visualizer-container');
+            
+            // Determine if we're currently detecting sound based on smoothed level
+            const currentAudioState = smoothedAudioLevel > 50 - (audioSensitivity * 5);
+            
+            // Only track state changes with smoothing to avoid rapid flickering
+            if (currentAudioState !== lastAudioState) {
+                // Clear any pending timeouts to avoid race conditions
+                if (audioStateChangeTimeout) {
+                    clearTimeout(audioStateChangeTimeout);
                 }
                 
-                // Make indicator visible
-                audioLevelIndicator.style.opacity = '1';
+                // Set a timeout to help with debouncing
+                audioStateChangeTimeout = setTimeout(() => {
+                    // If we're transitioning to silence after audio was detected
+                    if (!currentAudioState && lastAudioState) {
+                        consecutiveSilenceCount++;
+                        console.log(`Silence detected (${consecutiveSilenceCount}/${silenceThreshold})`);
+                        
+                        // Only trigger after multiple consecutive silence periods
+                        if (consecutiveSilenceCount >= silenceThreshold) {
+                            console.log("Sufficient silence periods detected after speech");
+                            consecutiveSilenceCount = 0; // Reset counter
+                        }
+                    } else if (currentAudioState) {
+                        // Reset silence counter when audio is detected
+                        consecutiveSilenceCount = 0;
+                    }
+                    
+                    // Update the last state
+                    lastAudioState = currentAudioState;
+                    
+                    // Update UI indicator
+                    if (visualizerContainer) {
+                        if (currentAudioState) {
+                            visualizerContainer.classList.add('triggered');
+                        } else {
+                            visualizerContainer.classList.remove('triggered');
+                        }
+                    }
+                }, 300); // 300ms debounce time
             }
-            
-            // First, calculate the first bar's height for audio state detection
-            const firstBarStart = Math.floor(0 * frequencyData.length / bars.length);
-            const firstBarEnd = Math.floor(1 * frequencyData.length / bars.length);
-            let firstBarSum = 0;
-            
-            // Sum frequencies for first bar
-            for (let j = firstBarStart; j < firstBarEnd; j++) {
-                firstBarSum += frequencyData[j];
-            }
-            
-            // Calculate average for first bar 
-            const firstBarAvg = firstBarSum / (firstBarEnd - firstBarStart);
-            
-            // Apply amplification based on sensitivity setting
-            const amplifiedFirstBarAvg = firstBarAvg * amplificationFactor;
-            
-            // Fixed detection threshold (since sensitivity now controls amplification instead)
-            const detectionThreshold = 20; // A moderate threshold that works with amplification
-            
-            // Map to height (5px to 40px)
-            const firstBarHeight = Math.max(5, Math.min(40, amplifiedFirstBarAvg * 0.4));
-            
-            // Determine current audio state based on the height and threshold
-            const currentAudioState = firstBarHeight >= detectionThreshold;
-            
-            // For debugging, log the current db level
-            if (Math.random() < 0.01) { // Log occasionally
-                console.log('Current dB:', db, 'Threshold:', detectionThreshold, 'FirstBarAvg:', firstBarAvg);
-            }
-            
-            // For level 5, add a debug flag to force trigger if no recent triggers
-            const now = Date.now();
-            // Detect transition from silence to audio (instead of continuous audio detection)
-            if ((!lastAudioState && currentAudioState && !audioTriggerActive) || 
-                (audioSensitivity === 5 && firstBarHeight >= 3 && now - lastTriggerTime > 2000 && !audioTriggerActive)) {
-                lastTriggerTime = now;
-                audioTriggerActive = true;
-                
-                // Trigger the count button when we go from silence to audio
-                setTimeout(() => {
-                    handleCountClickFromAudio();
-                    // Reset the flag after a short delay
-                    setTimeout(() => {
-                        audioTriggerActive = false;
-                    }, 200);
-                }, 10);
-            }
-            
-            // Update last audio state for next comparison
-            lastAudioState = currentAudioState;
             
             // Animation amplification factor based on sensitivity
             // Higher sensitivity = more amplification of the visualizer
@@ -2070,50 +2059,31 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Calculate average frequency for each bar for visualization
             for (let i = 0; i < bars.length; i++) {
-                // Show or hide bars based on sensitivity setting
-                // Sensitivity 1 = 1 bar, Sensitivity 5 = 5 bars
-                if (i < audioSensitivity) {
-                    bars[i].style.display = 'block';
-                } else {
-                    bars[i].style.display = 'none';
-                    continue; // Skip calculations for hidden bars
-                }
+                // Get a slice of the frequency data for this bar
+                const startIndex = Math.floor(i * frequencyData.length / bars.length);
+                const endIndex = Math.floor((i + 1) * frequencyData.length / bars.length);
                 
-                // If this is the first bar, add the 'active' class to the visualizer
-                if (i === 0) {
-                    document.getElementById('audio-visualizer').classList.add('active');
-                }
-                
-                // Get frequency data for this bar
-                const start = Math.floor(i * frequencyData.length / bars.length);
-                const end = Math.floor((i + 1) * frequencyData.length / bars.length);
                 let sum = 0;
-                
-                // Sum frequencies
-                for (let j = start; j < end; j++) {
+                for (let j = startIndex; j < endIndex; j++) {
                     sum += frequencyData[j];
                 }
                 
-                // Calculate average
-                const avg = sum / (end - start);
+                // Average for this segment
+                const average = sum / (endIndex - startIndex);
                 
-                // Apply volume amplification based on sensitivity level
-                const amplifiedAvg = avg * amplificationFactor;
+                // Apply scaling and amplification
+                const scaledHeight = Math.max(5, Math.min(40, average * 0.5 * amplificationFactor));
                 
-                // Map to bar height with amplification
-                // More sensitive = taller bars for the same input
-                const height = Math.max(5, Math.min(40, amplifiedAvg * 0.4));
-                
-                // Apply height to bar
-                bars[i].style.height = `${height}px`;
+                // Animate the bar height
+                bars[i].style.height = `${scaledHeight}px`;
             }
             
-            // Request next frame
-            animationId = requestAnimationFrame(render);
+            // Continue animation
+            animationId = requestAnimationFrame(updateVisualizer);
         }
         
-        // Start visualization
-        render();
+        // Start the visualization
+        updateVisualizer();
     }
     
     // Function to reset and reinitialize audio system
