@@ -1874,29 +1874,83 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to visualize audio
     function visualizeAudio(bars) {
-        // Create data array
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        // Create data array for time domain data
+        const timeDomainData = new Uint8Array(analyser.fftSize);
+        
+        // Create data array for frequency data
+        const frequencyData = new Uint8Array(analyser.frequencyBinCount);
         
         // Variables for audio-triggered counting
         let lastTriggerTime = 0;
         const triggerCooldown = 1000; // 1 second cooldown between triggers to prevent rapid counting
+        
+        // Get the audio level indicator element
+        const audioLevelIndicator = document.getElementById('audio-level-indicator');
+        
+        // Debug confirmation 
+        console.log("Audio visualization started, indicator:", audioLevelIndicator);
         
         // Function to render the visualization
         function render() {
             // Only continue if voice is enabled
             if (!isVoiceEnabled) return;
             
-            // Get frequency data
-            analyser.getByteFrequencyData(dataArray);
+            // Get time domain data for volume calculation
+            analyser.getByteTimeDomainData(timeDomainData);
+            
+            // Get frequency data for visualization
+            analyser.getByteFrequencyData(frequencyData);
+            
+            // Calculate volume from time domain data
+            let sumSquares = 0;
+            for (let i = 0; i < timeDomainData.length; i++) {
+                // Convert from 0-255 to -1 to 1
+                const amplitude = ((timeDomainData[i] / 128.0) - 1.0);
+                sumSquares += amplitude * amplitude;
+            }
+            
+            // Calculate RMS (root mean square)
+            const rms = Math.sqrt(sumSquares / timeDomainData.length);
+            
+            // Convert to decibels (logarithmic scale) and ensure values are positive
+            let db = Math.max(0, Math.round(20 * Math.log10(rms + 0.0001)));
+            
+            // Alternative method: use the raw frequency data average
+            let frequencySum = 0;
+            for (let i = 0; i < frequencyData.length; i++) {
+                frequencySum += frequencyData[i];
+            }
+            const frequencyAvg = Math.round(frequencySum / frequencyData.length);
+            
+            // Final audio level to display - use the larger of the two values for better visibility
+            const audioLevel = Math.max(db, frequencyAvg);
+            
+            // Always update the level indicator with the current value
+            if (audioLevelIndicator) {
+                // Show decibels
+                audioLevelIndicator.textContent = audioLevel + ' dB';
+                
+                // Change color based on level
+                if (audioLevel > 40) {
+                    audioLevelIndicator.style.color = '#4CAF50'; // Green for high volume
+                } else if (audioLevel > 20) {
+                    audioLevelIndicator.style.color = '#FFA000'; // Orange for medium volume
+                } else {
+                    audioLevelIndicator.style.color = '#E91E63'; // Pink for low volume
+                }
+                
+                // Make indicator visible
+                audioLevelIndicator.style.opacity = '1';
+            }
             
             // First, calculate the first bar's height for audio state detection
-            const firstBarStart = Math.floor(0 * dataArray.length / bars.length);
-            const firstBarEnd = Math.floor(1 * dataArray.length / bars.length);
+            const firstBarStart = Math.floor(0 * frequencyData.length / bars.length);
+            const firstBarEnd = Math.floor(1 * frequencyData.length / bars.length);
             let firstBarSum = 0;
             
             // Sum frequencies for first bar
             for (let j = firstBarStart; j < firstBarEnd; j++) {
-                firstBarSum += dataArray[j];
+                firstBarSum += frequencyData[j];
             }
             
             // Calculate average for first bar
@@ -1918,6 +1972,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Determine current audio state based on the height and sensitivity threshold
             const currentAudioState = firstBarHeight >= detectionThreshold;
+            
+            // For debugging, log the current db level
+            if (Math.random() < 0.01) { // Log occasionally
+                console.log('Current dB:', db, 'Threshold:', detectionThreshold, 'FirstBarAvg:', firstBarAvg);
+            }
             
             // For level 5, add a debug flag to force trigger if no recent triggers
             const now = Date.now();
@@ -1955,14 +2014,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     continue; // Skip calculations for hidden bars
                 }
                 
+                // If this is the first bar, add the 'active' class to the visualizer
+                if (i === 0) {
+                    document.getElementById('audio-visualizer').classList.add('active');
+                }
+                
                 // Get frequency data for this bar
-                const start = Math.floor(i * dataArray.length / bars.length);
-                const end = Math.floor((i + 1) * dataArray.length / bars.length);
+                const start = Math.floor(i * frequencyData.length / bars.length);
+                const end = Math.floor((i + 1) * frequencyData.length / bars.length);
                 let sum = 0;
                 
                 // Sum frequencies
                 for (let j = start; j < end; j++) {
-                    sum += dataArray[j];
+                    sum += frequencyData[j];
                 }
                 
                 // Calculate average
