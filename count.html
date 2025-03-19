@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Phrase Counter</title>
+  <style>
+    /* Reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    /* Dark mode variables */
+    :root {
+      --dark-background: #1C1C1C;
+      --dark-text-primary: #e0e0e0;
+      --dark-border: #434343;
+      --dark-inactive: #4E4E4E;
+      --dark-card-bg: #2a2a2a;
+      --dark-button-bg: #444;
+      --dark-button-hover: #555;
+      --dark-input-bg: #333333;
+      --dark-accent: #14DCFF;
+      
+      /* Light mode variables */
+      --light-background: #f5f5f5;
+      --light-text-primary: #333333;
+      --light-border: #cccccc;
+      --light-inactive: #b0b0b0;
+      --light-card-bg: #ffffff;
+      --light-button-bg: #e0e0e0;
+      --light-button-hover: #d4d4d4;
+      --light-input-bg: #ffffff;
+      --light-accent: #03A9F4;
+      
+      /* Default to dark theme */
+      --theme-background: var(--dark-background);
+      --theme-text-primary: var(--dark-text-primary);
+      --theme-border: var(--dark-border);
+      --theme-inactive: var(--dark-inactive);
+      --theme-card-bg: var(--dark-card-bg);
+      --theme-button-bg: var(--dark-button-bg);
+      --theme-button-hover: var(--dark-button-hover);
+      --theme-input-bg: var(--dark-input-bg);
+      --theme-accent: var(--dark-accent);
+    }
+    
+    /* Light theme class */
+    body.light-theme {
+      --theme-background: var(--light-background);
+      --theme-text-primary: var(--light-text-primary);
+      --theme-border: var(--light-border);
+      --theme-inactive: var(--light-inactive);
+      --theme-card-bg: var(--light-card-bg);
+      --theme-button-bg: var(--light-button-bg);
+      --theme-button-hover: var(--light-button-hover);
+      --theme-input-bg: var(--light-input-bg);
+      --theme-accent: var(--light-accent);
+    }
+    
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: var(--theme-background);
+      color: var(--theme-text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: all 0.3s ease;
+    }
+    
+    .container {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    /* Theme toggle */
+    .theme-toggle {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      padding: 10px 15px;
+      border-radius: 20px;
+      border: 1px solid var(--theme-text-secondary);
+      background-color: var(--theme-bg);
+      color: var(--theme-text-primary);
+      cursor: pointer;
+      font-size: 14px;
+      z-index: 100;
+      transition: 0.3s;
+    }
+    
+    .theme-toggle:hover {
+      background-color: var(--theme-accent);
+    }
+    
+    .theme-toggle span {
+      margin-right: 5px;
+    }
+    
+    /* Other styles */
+    .color-counter {
+      width: 100%;
+      display: flex;  
+      justify-content: center;
+      margin-bottom: 30px;
+      margin-top: 30px;
+    }
+    
+    .counter-number {
+      font-size: 8rem;
+      font-weight: bold;
+      color: #ff4500;
+      transition: all 0.3s ease;
+      text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      line-height: 1;
+      padding: 20px;
+    }
+    
+    .controls {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    
+    .input-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .phrase-filter-container {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+      margin: 0 auto;
+    }
+    
+    .phrase-filter-container input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid var(--theme-bg);
+      background-color: var(--theme-bg);
+      color: var(--theme-text-primary);
+      font-size: 18px;
+      text-align: center;
+    }
+    
+    /* Clear button styles */
+    .clear-input {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.4);
+      color: white;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      visibility: hidden;
+      z-index: 20;
+      pointer-events: auto;
+    }
+    
+    .clear-input:hover {
+      background-color: rgba(255, 255, 255, 0.6);
+    }
+    
+    /* Show clear button when input is focused */
+    .phrase-filter-container.focused .clear-input {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .button-group {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+    }
