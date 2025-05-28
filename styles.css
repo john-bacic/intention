@@ -244,11 +244,14 @@ h1 {
     width: 100%;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     padding: 0 16px;
     box-sizing: border-box;
     position: relative;
     bottom: 0;
+    min-height: 64px; /* Minimum height to accommodate single line */
+    height: auto; /* Allow container to expand */
+    flex-shrink: 0; /* Prevent container from shrinking */
 }
 
 #user-sentence {
@@ -265,6 +268,11 @@ h1 {
     align-items: center;
     text-align: center;
     outline: none; /* Remove default browser focus outline */
+    line-height: 1.4;
+    min-height: 44px;
+    overflow-wrap: break-word;
+    overflow: hidden;
+    height: auto;
 }
 
 #user-sentence:focus {
