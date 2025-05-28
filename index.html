@@ -53,11 +53,27 @@
             </div>
            
             <div class="settings-group">
-                <div><span id="sensitivity-value">1</span>Audio sensitivity</div> 
-                <div class="slider-container">
-                   
-                    <input type="range" id="audio-sensitivity" min="1" max="5" value="1" step="1">
-                   
+                <div class="settings-item">
+                    <label for="audio-sensitivity">Mic</label>
+                    <div class="sensitivity-container">
+                        <input type="range" id="audio-sensitivity" min="1" max="5" value="3" step="1">
+                        <span id="sensitivity-value">3</span>
+                    </div>
+                </div>
+                
+                <div class="settings-item">
+                    <label for="openai-api-key">OpenAI API Key (for speech recognition)</label>
+                    <div class="api-key-container">
+                        <input type="password" id="openai-api-key" placeholder="Enter your OpenAI API key">
+                        <button id="save-api-key" class="small-button">Save</button>
+                    </div>
+                </div>
+                
+                <div class="settings-item">
+                    <div id="speech-transcript-container">
+                        <label>Speech Recognition:</label>
+                        <div id="speech-transcript">Waiting for speech...</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -112,7 +128,7 @@
 
             <div class="input-container">
                 <!-- <label for="user-sentence">Your daily motivation:</label> -->
-                <input type="text" id="user-sentence" placeholder="Mantra...">
+                <textarea id="user-sentence" placeholder="Mantra..." rows="2"></textarea>
             </div>
 
 
@@ -148,6 +164,7 @@
     
     <div id="version-indicator" class="version-indicator">-------</div>
     
+    <script src="config.js"></script>
     <script src="script.js" defer></script>
 </body>
 </html>

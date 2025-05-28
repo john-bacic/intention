@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microphone Permission Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .visualizer {
+            height: 60px;
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .bar {
+            width: 10px;
+            height: 5px;
+            margin: 0 2px;
+            background-color: #4CAF50;
+            transition: height 0.1s ease;
+        }
+        #status {
+            font-weight: bold;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .error {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>Microphone Permission Test</h1>
+    <p>This page demonstrates best practices for handling microphone access in web applications.</p>
+    
+    <div class="container">
+        <h2>1. Request Microphone - In Response to User Action</h2>
+        <p>Requesting microphone access should be done in response to a user action to avoid permission issues.</p>
+        <button id="requestMic">Request Microphone Access</button>
+        <div id="status">Status: Waiting for user to click button</div>
+    </div>
+    
+    <div class="container">
+        <h2>2. Audio Visualizer</h2>
+        <p>The visualizer will only work once microphone access is granted.</p>
+        <div class="visualizer" id="visualizer">
+            <!-- Bars will be added with JavaScript -->
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>3. Code Reference</h2>
+        <p>Here's how to properly request microphone access:</p>
+        <pre>
+// Function to request microphone access in response to user action
+async function requestMicrophoneAccess() {
+    try {
+        // Request with clear constraints
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        });
+        
+        // Handle success
+        handleMicrophoneSuccess(stream);
+    } catch (error) {
+        // Handle specific error types
+        if (error.name === 'NotAllowedError') {
+            // User or browser denied permission
+            handlePermissionDenied();
+        } else if (error.name === 'NotFoundError') {
+            // No microphone available
+            handleNoMicrophone();
+        } else {
+            // Other errors
+            handleOtherMicrophoneError(error);
+        }
+    }
+}
+        </pre>
+    </div>
+    
+    <script>
+        // Global variables
+        let audioContext = null;
+        let analyser = null;
+        let microphone = null;
+        let animationFrame = null;
+        
+        // Create the bars for the visualizer
+        const visualizer = document.getElementById('visualizer');
+        const bars = [];
+        const barCount = 10;
+        
+        for (let i = 0; i < barCount; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'bar';
+            visualizer.appendChild(bar);
+            bars.push(bar);
+        }
+        
+        // Handle the request microphone button click
+        document.getElementById('requestMic').addEventListener('click', async () => {
+            const statusEl = document.getElementById('status');
+            statusEl.className = '';
+            statusEl.textContent = 'Status: Requesting microphone access...';
+            
+            try {
+                // Always create a fresh audio context on user interaction
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                } else if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
+                // Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+                
+                // Success! Set up audio processing
+                statusEl.textContent = 'Status: Microphone access granted!';
+                statusEl.className = 'success';
+                
+                // Create analyzer if needed
+                if (!analyser) {
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 256;
+                    analyser.smoothingTimeConstant = 0.8;
+                }
+                
+                // Connect microphone to analyzer
+                microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+                
+                // Start visualization
+                startVisualization();
+                
+            } catch (error) {
+                // Handle specific error types
+                statusEl.className = 'error';
+                
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    statusEl.textContent = 'Status: Microphone access denied by user or browser settings';
+                    console.error('Permission denied:', error);
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    statusEl.textContent = 'Status: No microphone found on your device';
+                    console.error('No microphone:', error);
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    statusEl.textContent = 'Status: Microphone is in use by another application';
+                    console.error('Microphone in use:', error);
+                } else {
+                    statusEl.textContent = `Status: Error accessing microphone: ${error.message}`;
+                    console.error('Other error:', error);
+                }
+                
+                // Log helpful debugging information
+                console.log('TROUBLESHOOTING:');
+                console.log('- Browser:', navigator.userAgent);
+                console.log('- Error name:', error.name);
+                console.log('- Error message:', error.message);
+                console.log('- Running on HTTPS?', window.location.protocol === 'https:');
+                console.log('- Running on localhost?', window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+            }
+        });
+        
+        // Function to start audio visualization
+        function startVisualization() {
+            // Create frequency data array
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            
+            // Animation function
+            function animate() {
+                // Get frequency data
+                analyser.getByteFrequencyData(dataArray);
+                
+                // Update each bar
+                for (let i = 0; i < bars.length; i++) {
+                    // Get data for this bar (map from frequency range to bar index)
+                    const start = Math.floor(i * dataArray.length / bars.length);
+                    const end = Math.floor((i + 1) * dataArray.length / bars.length);
+                    
+                    // Calculate average frequency value for this range
+                    let sum = 0;
+                    for (let j = start; j < end; j++) {
+                        sum += dataArray[j];
+                    }
+                    const average = sum / (end - start);
+                    
+                    // Map to height (5px to 40px)
+                    const height = Math.max(5, Math.min(40, average * 0.4));
+                    
+                    // Set bar height
+                    bars[i].style.height = `${height}px`;
+                }
+                
+                // Request next frame
+                animationFrame = requestAnimationFrame(animate);
+            }
+            
+            // Start the animation
+            animate();
+        }
+    </script>
+</body>
+</html>

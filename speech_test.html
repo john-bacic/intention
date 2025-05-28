@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Speech Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    button {
+      padding: 10px 15px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 0;
+    }
+    #speech-transcript {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      min-height: 30px;
+      background: #f9f9f9;
+    }
+    #instruction {
+      background: #fff3cd;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      border-left: 4px solid #ffc107;
+    }
+    /* Styles for the color circle */
+    .circle-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 20px 0;
+    }
+    #color-circle {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background-color: #808080;
+      transition: background-color 0.5s ease, transform 0.3s ease;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      margin: 15px 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+    #color-count {
+      font-size: 48px;
+      font-weight: bold;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+      z-index: 2;
+    }
+    #detected-color {
+      font-weight: bold;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+    #reset-colors {
+      background-color: #f44336;
+      margin-top: 10px;
+    }
+    #color-stats {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+    .color-stat {
+      display: inline-block;
+      margin: 5px;
+      padding: 5px 10px;
+      border-radius: 15px;
+      color: white;
+      font-weight: bold;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+    }
+    #color-filter-container {
+      margin: 15px 0;
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #color-filter {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      width: 100%;
+      font-size: 16px;
+      margin-top: 5px;
+    }
+    .filter-label {
+      font-weight: bold;
+      margin-bottom: 5px;
+      align-self: flex-start;
+    }
+    .filter-active {
+      background-color: #e8f5e9;
+      border-left: 4px solid #4CAF50;
+      padding-left: 10px;
+    }
+    .filter-controls {
+      display: flex;
+      width: 100%;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    #clear-filter {
+      background-color: #f5f5f5;
+      color: #333;
+      flex: 1;
+    }
+    #set-filter {
+      background-color: #4CAF50;
+      flex: 1;
+    }
+    .volume-control {
+      margin: 20px 0;
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .volume-slider-container {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-top: 10px;
+    }
+    #volume-slider {
+      flex-grow: 1;
+    }
+    .volume-value {
+      font-weight: bold;
+      font-size: 18px;
+      width: 30px;
+      text-align: center;
+    }
+    .sensitivity-label {
+      margin-bottom: 5px;
+      font-weight: bold;
+      align-self: flex-start;
+    }
+    #volume-meter-container {
+      width: 100%;
+      margin-top: 15px;
+    }
+    #volume-meter {
+      height: 20px;
+      background-color: #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+    #volume-bar {
+      height: 100%;
+      width: 0%;
+      background-color: #4CAF50;
+      transition: width 0.1s;
+    }
+    #volume-text {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Speech Recognition Test</h1>
+  
+  <div id="instruction">
+    <p><strong>Instructions:</strong> Click "Start Listening" and speak. The transcript will update continuously as you speak. 
+    Once working, copy the code from this page to fix your main app.</p>
+  </div>
+  
+  <button id="start-btn">Start Listening</button>
+  <button id="stop-btn">Stop Listening</button>
+  
+  <div id="speech-transcript">Speech will appear here...</div>
+  
+  <div id="color-filter-container">
+    <label class="filter-label" for="color-filter">Filter by color:</label>
+    <input id="color-filter" type="text" placeholder="Enter a color (e.g. red, blue, green)">
+    <div class="filter-controls">
+      <button id="clear-filter">Clear Filter</button>
+      <button id="set-filter">Set Filter</button>
+    </div>
+  </div>
+  
+  <div class="volume-control">
+    <label class="sensitivity-label">Volume Sensitivity:</label>
+    <div class="volume-slider-container">
+      <input id="volume-slider" type="range" min="1" max="5" value="3">
+      <span class="volume-value" id="volume-value">3</span>
+    </div>
+    <div id="volume-meter-container" style="width: 100%; margin-top: 15px;">
+      <div id="volume-meter" style="height: 20px; background-color: #e0e0e0; border-radius: 10px; overflow: hidden; position: relative;">
+        <div id="volume-bar" style="height: 100%; width: 0%; background-color: #4CAF50; transition: width 0.1s;"></div>
+        <div id="volume-text" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="circle-container">
+    <div id="color-circle">
+      <div id="color-count">0</div>
+    </div>
+    <div id="detected-color">No color detected</div>
+    <button id="reset-colors">Reset Colors</button>
+    <div id="color-stats"></div>
+  </div>
+  
+  <script>
+    // Speech recognition variables
+    let recognition = null;
+    let isListening = false;
+    
+    // Audio processing variables
+    let audioContext = null;
+    let analyser = null;
+    let microphone = null;
+    let javascriptNode = null;
+    let amplification = 0.6; // Default to middle value (3 out of 5)
+    
+    // Color tracking variables
+    const colorCounts = {};
+    
+    // Dictionary of color phrases to actual CSS colors
+    const colorMap = {
+        // Basic colors
+        'red': 'red',
+        'blue': 'blue',
+        'green': 'green',
+        'yellow': 'yellow',
+        'orange': 'orange',
+        'purple': 'purple',
+        'pink': 'pink',
+        'brown': 'brown',
+        'black': 'black',
+        'white': 'white',
+        'gray': 'gray',
+        'grey': 'gray',
+        
+        // More specific colors
+        'light blue': 'lightblue',
+        'dark blue': 'darkblue',
+        'light green': 'lightgreen',
+        'dark green': 'darkgreen',
+        'light red': 'salmon',
+        'dark red': 'darkred',
+        'hot pink': 'hotpink',
+        'navy blue': 'navy',
+        'navy': 'navy',
+        'teal': 'teal',
+        'cyan': 'cyan',
+        'magenta': 'magenta',
+        'lime': 'lime',
+        'lime green': 'lime',
+        'maroon': 'maroon',
+        'olive': 'olive',
+        'violet': 'violet',
+        'indigo': 'indigo',
+        'turquoise': 'turquoise',
+        'gold': 'gold',
+        'silver': 'silver',
+        'beige': 'beige',
+        'tan': 'tan',
+        'salmon': 'salmon',
+        'coral': 'coral'
+    };
+    
+    // DOM elements
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const transcriptEl = document.getElementById('speech-transcript');
+    const colorCircle = document.getElementById('color-circle');
+    const detectedColorEl = document.getElementById('detected-color');
+    const colorCountEl = document.getElementById('color-count');
+    const resetColorsBtn = document.getElementById('reset-colors');
+    const colorStatsEl = document.getElementById('color-stats');
+    const colorFilterInput = document.getElementById('color-filter');
+    const clearFilterBtn = document.getElementById('clear-filter');
+    const setFilterBtn = document.getElementById('set-filter');
+    const volumeSlider = document.getElementById('volume-slider');
+    const volumeValueEl = document.getElementById('volume-value');
+    const volumeMeter = document.getElementById('volume-meter');
+    const volumeBar = document.getElementById('volume-bar');
+    const volumeText = document.getElementById('volume-text');
+    
+    // Check for browser support
+    if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      transcriptEl.textContent = 'Speech recognition not supported in this browser.';
+      startBtn.disabled = true;
+      stopBtn.disabled = true;
+    }
+    
+    // Initialize speech recognition
+    function initSpeechRecognition() {
+      // Create new instance
+      recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      
+      // Configure settings for best continuous updating
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognition.lang = 'en-US';
+      
+      // Handle speech results - both interim and final
+      recognition.onresult = (event) => {
+        const last = event.results.length - 1;
+        const result = event.results[last];
+        const transcript = result[0].transcript.trim();
+        const isFinal = result.isFinal;
+        
+        console.log(`Speech: "${transcript}" (${isFinal ? 'final' : 'interim'})`);
+        
+        // Always update display for both interim and final results
+        transcriptEl.textContent = 'Heard: "' + transcript + '"';
+        
+        // Only process colors for FINAL results to avoid duplicate counting
+        if (isFinal) {
+          // Update color circle based on speech
+          const text = transcript.toLowerCase();
+          const filterColor = colorFilterInput.value.toLowerCase();
+          
+          let detectedColor = null;
+          let colorName = '';
+          let colorCount = 0;
+          
+          // Check for color matches in the transcript
+          for (const [phrase, color] of Object.entries(colorMap)) {
+              if (text.includes(phrase) && (filterColor === '' || phrase === filterColor)) {
+                  detectedColor = color;
+                  colorName = phrase;
+                  
+                  // Initialize count for this color if it doesn't exist
+                  if (!colorCounts[color]) {
+                      colorCounts[color] = 0;
+                  }
+                  
+                  // Increment the count for this specific color
+                  colorCounts[color]++;
+                  
+                  // Get the current count for this color
+                  colorCount = colorCounts[color];
+                  break;
+              }
+          }
+          
+          // Update the circle if a color was detected
+          if (detectedColor) {
+            // Apply animation effect
+            colorCircle.style.transition = 'background-color 0.5s ease, transform 0.3s ease';
+            colorCircle.style.backgroundColor = detectedColor;
+            colorCircle.style.transform = 'scale(1.05)';
+            
+            // Reset scale after animation
+            setTimeout(() => {
+                colorCircle.style.transform = 'scale(1)';
+            }, 300);
+            
+            // Update text with proper capitalization
+            detectedColorEl.textContent = 'Detected color: ' + colorName.charAt(0).toUpperCase() + colorName.slice(1);
+            
+            // Update color count
+            colorCountEl.textContent = colorCount.toString();
+            
+            // Add color to the text (except for dark colors which would be hard to read)
+            if (detectedColor !== 'black' && detectedColor !== 'navy' && detectedColor !== 'darkblue') {
+                detectedColorEl.style.color = detectedColor;
+            } else {
+                detectedColorEl.style.color = '#333';
+            }
+            
+            // Update color stats
+            colorStatsEl.innerHTML = '';
+            for (const [color, count] of Object.entries(colorCounts)) {
+                const statEl = document.createElement('div');
+                statEl.className = 'color-stat';
+                statEl.style.backgroundColor = color;
+                statEl.textContent = `${color.charAt(0).toUpperCase() + color.slice(1)}: ${count}`;
+                colorStatsEl.appendChild(statEl);
+            }
+          } else {
+            colorCircle.style.backgroundColor = '#808080';
+            detectedColorEl.textContent = 'No color detected';
+            detectedColorEl.style.color = '#333';
+          }
+        }
+      };
+      
+      // Handle end event - automatically restart if still listening
+      recognition.onend = () => {
+        console.log('Recognition ended');
+        if (isListening) {
+          console.log('Restarting recognition');
+          setTimeout(() => {
+            startRecognition();
+          }, 50);
+        }
+      };
+      
+      // Handle errors
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        if (event.error !== 'aborted' && event.error !== 'no-speech') {
+          transcriptEl.textContent = 'Error: ' + event.error;
+        }
+        
+        // Restart after errors if still listening
+        if (isListening) {
+          setTimeout(() => {
+            startRecognition();
+          }, 300);
+        }
+      };
+    }
+    
+    // Initialize audio processing
+    function initAudioProcessing() {
+      try {
+        // Create audio context
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Create analyzer
+        analyser = audioContext.createAnalyser();
+        analyser.minDecibels = -90;
+        analyser.maxDecibels = -10;
+        analyser.smoothingTimeConstant = 0.85;
+        
+        // Get microphone
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+          .then(function(stream) {
+            // Create microphone source
+            microphone = audioContext.createMediaStreamSource(stream);
+            
+            // Connect microphone to analyzer
+            microphone.connect(analyser);
+            
+            // Create processing node
+            javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+            
+            // Connect analyzer to processing node
+            analyser.connect(javascriptNode);
+            
+            // Connect processing node to destination
+            javascriptNode.connect(audioContext.destination);
+            
+            // Process audio data
+            javascriptNode.onaudioprocess = processAudio;
+            
+            console.log('Audio processing initialized');
+          })
+          .catch(function(err) {
+            console.error('Error getting microphone:', err);
+          });
+      } catch (error) {
+        console.error('Error initializing audio processing:', error);
+      }
+    }
+    
+    // Process audio data
+    function processAudio(event) {
+      // Get volume data
+      const array = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(array);
+      
+      // Calculate average volume
+      let values = 0;
+      for (let i = 0; i < array.length; i++) {
+        values += array[i];
+      }
+      
+      // Calculate average and apply amplification
+      const average = values / array.length;
+      const sensitivity = parseFloat(volumeSlider.value);
+      amplification = sensitivity / 5; // Convert 1-5 to 0.2-1.0
+      
+      // Apply amplification
+      const amplifiedVolume = Math.min(average * amplification * 2, 100);
+      
+      // Update volume meter
+      volumeBar.style.width = `${amplifiedVolume}%`;
+      volumeText.textContent = `${Math.round(amplifiedVolume)}%`;
+      
+      // Change color based on volume
+      if (amplifiedVolume < 30) {
+        volumeBar.style.backgroundColor = '#4CAF50'; // Green
+      } else if (amplifiedVolume < 70) {
+        volumeBar.style.backgroundColor = '#FF9800'; // Orange
+      } else {
+        volumeBar.style.backgroundColor = '#F44336'; // Red
+      }
+    }
+    
+    // Start listening
+    function startRecognition() {
+      try {
+        recognition.start();
+        console.log('Recognition started');
+        transcriptEl.textContent = 'Listening...';
+      } catch (error) {
+        console.error('Error starting recognition:', error);
+        transcriptEl.textContent = 'Error starting: ' + error.message;
+      }
+    }
+    
+    // Stop listening
+    function stopRecognition() {
+      if (recognition) {
+        isListening = false;
+        try {
+          recognition.stop();
+          console.log('Recognition stopped');
+        } catch (error) {
+          console.error('Error stopping recognition:', error);
+        }
+      }
+    }
+    
+    // Reset colors
+    function resetColors() {
+      // Clear the colorCounts object instead of reassigning
+      Object.keys(colorCounts).forEach(key => {
+        delete colorCounts[key];
+      });
+      
+      colorCircle.style.backgroundColor = '#808080';
+      detectedColorEl.textContent = 'No color detected';
+      detectedColorEl.style.color = '#333';
+      colorCountEl.textContent = '0';
+      colorStatsEl.innerHTML = '';
+    }
+    
+    // Event listeners
+    startBtn.addEventListener('click', () => {
+      if (!isListening) {
+        isListening = true;
+        
+        if (!recognition) {
+          initSpeechRecognition();
+        }
+        
+        if (!audioContext) {
+          initAudioProcessing();
+        }
+        
+        startRecognition();
+      }
+    });
+    
+    stopBtn.addEventListener('click', () => {
+      stopRecognition();
+      transcriptEl.textContent = 'Stopped listening.';
+    });
+    
+    resetColorsBtn.addEventListener('click', resetColors);
+    
+    // Add event listener for color filter changes
+    colorFilterInput.addEventListener('input', function() {
+      const filterValue = this.value.toLowerCase();
+      
+      if (filterValue === '') {
+        document.querySelector('.filter-label').textContent = 'Filter by color:';
+        document.querySelector('.filter-label').classList.remove('filter-active');
+      } else {
+        document.querySelector('.filter-label').textContent = `Listening for: "${filterValue}"`;
+        document.querySelector('.filter-label').classList.add('filter-active');
+      }
+    });
+    
+    // Set filter button
+    setFilterBtn.addEventListener('click', () => {
+      const filterValue = colorFilterInput.value.toLowerCase().trim();
+      
+      // Update the UI to show the filter is active
+      if (filterValue) {
+        document.querySelector('.filter-label').textContent = `Listening for: "${filterValue}"`;
+        document.querySelector('.filter-label').classList.add('filter-active');
+        colorFilterInput.setAttribute('disabled', 'disabled');
+        
+        // Check if the entered color exists in our color map
+        let validColor = false;
+        for (const phrase of Object.keys(colorMap)) {
+          if (phrase === filterValue) {
+            validColor = true;
+            break;
+          }
+        }
+        
+        if (!validColor) {
+          alert(`Warning: "${filterValue}" is not in the recognized color list. Speech recognition may not detect it.`);
+        }
+      }
+    });
+    
+    clearFilterBtn.addEventListener('click', () => {
+      colorFilterInput.value = '';
+      document.querySelector('.filter-label').textContent = 'Filter by color:';
+      document.querySelector('.filter-label').classList.remove('filter-active');
+      colorFilterInput.removeAttribute('disabled');
+    });
+    
+    volumeSlider.addEventListener('input', () => {
+      volumeValueEl.textContent = volumeSlider.value;
+      
+      // Update amplification value
+      const sensitivity = parseFloat(volumeSlider.value);
+      amplification = sensitivity / 5; // Convert 1-5 to 0.2-1.0
+      
+      // Update volume display
+      const displayPercent = sensitivity * 20;
+      volumeBar.style.width = `${displayPercent}%`;
+      volumeText.textContent = `${displayPercent}%`;
+    });
+  </script>
+  <script src="config.js"></script>
+</body>
+</html>

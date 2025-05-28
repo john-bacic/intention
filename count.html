@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Phrase Counter</title>
+  <style>
+    /* Reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    /* Dark mode variables */
+    :root {
+      --dark-background: #1C1C1C;
+      --dark-text-primary: #e0e0e0;
+      --dark-border: #434343;
+      --dark-inactive: #4E4E4E;
+      --dark-card-bg: #2a2a2a;
+      --dark-button-bg: #444;
+      --dark-button-hover: #555;
+      --dark-input-bg: #333333;
+      --dark-accent: #14DCFF;
+      
+      /* Light mode variables */
+      --light-background: #f5f5f5;
+      --light-text-primary: #333333;
+      --light-border: #cccccc;
+      --light-inactive: #b0b0b0;
+      --light-card-bg: #ffffff;
+      --light-button-bg: #e0e0e0;
+      --light-button-hover: #d4d4d4;
+      --light-input-bg: #ffffff;
+      --light-accent: #03A9F4;
+      
+      /* Default to dark theme */
+      --theme-background: var(--dark-background);
+      --theme-text-primary: var(--dark-text-primary);
+      --theme-border: var(--dark-border);
+      --theme-inactive: var(--dark-inactive);
+      --theme-card-bg: var(--dark-card-bg);
+      --theme-button-bg: var(--dark-button-bg);
+      --theme-button-hover: var(--dark-button-hover);
+      --theme-input-bg: var(--dark-input-bg);
+      --theme-accent: var(--dark-accent);
+    }
+    
+    /* Light theme class */
+    body.light-theme {
+      --theme-background: var(--light-background);
+      --theme-text-primary: var(--light-text-primary);
+      --theme-border: var(--light-border);
+      --theme-inactive: var(--light-inactive);
+      --theme-card-bg: var(--light-card-bg);
+      --theme-button-bg: var(--light-button-bg);
+      --theme-button-hover: var(--light-button-hover);
+      --theme-input-bg: var(--light-input-bg);
+      --theme-accent: var(--light-accent);
+    }
+    
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: var(--theme-background);
+      color: var(--theme-text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: all 0.3s ease;
+    }
+    
+    .container {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    /* Theme toggle */
+    .theme-toggle {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      padding: 10px 15px;
+      border-radius: 20px;
+      border: 1px solid var(--theme-text-secondary);
+      background-color: var(--theme-bg);
+      color: var(--theme-text-primary);
+      cursor: pointer;
+      font-size: 14px;
+      z-index: 100;
+      transition: 0.3s;
+    }
+    
+    .theme-toggle:hover {
+      background-color: var(--theme-accent);
+    }
+    
+    .theme-toggle span {
+      margin-right: 5px;
+    }
+    
+    /* Other styles */
+    .color-counter {
+      width: 100%;
+      display: flex;  
+      justify-content: center;
+      margin-bottom: 30px;
+      margin-top: 30px;
+    }
+    
+    .counter-number {
+      font-size: 8rem;
+      font-weight: bold;
+      color: #ff4500;
+      transition: all 0.3s ease;
+      text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      line-height: 1;
+      padding: 20px;
+    }
+    
+    .controls {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    
+    .input-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .phrase-filter-container {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+      margin: 0 auto;
+    }
+    
+    .phrase-filter-container input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid var(--theme-bg);
+      background-color: var(--theme-bg);
+      color: var(--theme-text-primary);
+      font-size: 18px;
+      text-align: center;
+    }
+    
+    /* Clear button styles */
+    .clear-input {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.4);
+      color: white;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      visibility: hidden;
+      z-index: 20;
+      pointer-events: auto;
+    }
+    
+    .clear-input:hover {
+      background-color: rgba(255, 255, 255, 0.6);
+    }
+    
+    /* Show clear button when input is focused */
+    .phrase-filter-container.focused .clear-input {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .button-group {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+    }
+    
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      background-color: var(--theme-bg);
+      color: var(--theme-text-primary);
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background-color 0.3s;
+      flex: 1;
+    }
+    
+    button:hover:not(:disabled) {
+      background-color: var(--theme-button-hover);
+    }
+    
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .transcript-container {
+      width: 100%;
+      margin-top: 20px;
+    }
+    
+    .transcript {
+      width: 100%;
+      min-height: 100px;
+      padding: 10px;
+      background-color: var(--theme-bg);
+      color: var(--theme-text-primary);
+      border: 0px solid var(--theme-border);
+      border-radius: 5px;
+      margin-top: 5px;
+      font-size: 14px;
+      line-height: 1.4;
+      overflow-y: auto;
+      max-height: 200px;
+    }
+    
+    .detected-phrase {
+      margin-top: 10px;
+      font-style: italic;
+      color: var(--theme-accent);
+    }
+    
+    .slider-container {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .slider-container label {
+      min-width: 100px;
+    }
+    
+    .slider-container input {
+      flex: 1;
+    }
+    
+    /* Visualizer */
+    #audio-visualizer {
+      width: 100%;
+      height: 100px;
+      background-color: var(--theme-background);
+      border: 0px solid var(--theme-border);
+      border-radius: 5px;
+      margin-top: 20px;
+    }
+    
+    /* Word indicators */
+    .word-indicators {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .word-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: var(--theme-inactive);
+    }
+    
+    .word-indicator.active {
+      background-color: var(--theme-accent);
+    }
+    
+    /* Toggle switch styling */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+    
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+    
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .toggle-slider {
+      background-color: var(--theme-accent);
+    }
+    
+    input:checked + .toggle-slider:before {
+      transform: translateX(26px);
+    }
+    
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+      width: 100%;
+    }
+    
+    .toggle-label {
+      font-size: 14px;
+      margin: 0 10px;
+      color: var(--theme-text-primary);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Counter at the top -->
+    <div class="color-counter">
+      <div class="counter-number" id="color-count">0</div>
+    </div>
+    
+    <!-- Input field -->
+    <div class="input-container">
+      <div class="phrase-filter-container">
+        <input id="phrase-filter" type="text" placeholder="Enter a phrase to count" value="&quot;count&quot;">
+        <div class="clear-input" id="clear-input-btn">×</div>
+      </div>
+    </div>
+    
+    <!-- Detection info -->
+    <div id="detected-phrase" class="detected-phrase">No phrase detected</div>
+    <div id="speech-transcript" class="transcript-container">
+      <div class="transcript" id="speech-transcript">Speech will appear here...</div>
+      
+      <!-- Counter Controls -->
+      <div class="button-group">
+        <button id="increment-btn">+1</button>
+        <button id="reset-counter-btn">Reset</button>
+      </div>
+    </div>
+    
+    <!-- Sensitivity -->
+    <div class="slider-container">
+      <label for="volume-slider">Microphone Sensitivity: <span id="volume-text">5</span></label>
+      <input type="range" id="volume-slider" min="1" max="10" value="5">
+    </div>
+    
+
+    </div>
+    
+    <!-- Visualization -->
+    <div id="visualization">
+      <canvas id="audio-visualizer"></canvas>
+    </div>
+  </div>
+  
+<!-- Controls -->
+<div class="controls">
+  <!-- Speech Recognition Controls -->
+  <div class="button-group">
+    <div class="toggle-container">
+      <span class="toggle-label">Off</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="listen-toggle">
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label">Listening</span>
+        </div>
+      </div>
+
+      <!-- Theme Toggle Button -->
+  <button id="theme-toggle" class="theme-toggle">
+    <span id="theme-icon">🌙</span>
+    <span id="theme-text">Light Mode</span>
+  </button>
+
+
+
+
+  
+  <script>
+    // Global variables for DOM elements
+    let listenToggle, incrementBtn, resetCounterBtn, phraseFilterInput, 
+        volumeSlider, volumeText, transcriptEl, colorCountEl, detectedPhraseEl,
+        canvas, canvasCtx, themeToggle, themeIcon, themeText;
+    
+    // Speech recognition variables
+    let recognition = null;
+    let isListening = false;
+    let audioContext = null;
+    let analyser = null;
+    let source = null; 
+    let dataArray = null;
+    let bufferLength = null;
+    let volumeData = new Uint8Array(1024);
+    let counter = 0;
+    let currentColor = generateMutedColor();
+    let lastRecognitionTime = 0;
+    let cooldownTime = 500; // ms
+    let wordSequence = []; // Track the sequence of words
+    let lastRecognizedIndex = -1; // Index of last recognized word in sequence
+    let recognizedWords = {}; // Track recognized words
+    let visualizerActive = false; // Track if visualizer is running
+    let animationFrame = null; // Store animation frame ID
+    
+    // Function to generate muted colors that are pleasing to the eye
+    function generateMutedColor() {
+        // Generate a pleasing hue
+        const hue = Math.floor(Math.random() * 360);
+        
+        // Use higher saturation and lightness for more vibrant colors
+        const saturation = 70 + Math.floor(Math.random() * 30); // 70-100%
+        const lightness = 45 + Math.floor(Math.random() * 15); // 45-60%
+        
+        return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    }
+    
+    // Function to set up speech recognition
+    function setupSpeechRecognition() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert('Speech recognition is not supported in this browser. Please try Chrome, Edge, or Safari.');
+        return false;
+      }
+      
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      
+      recognition.onstart = function() {
+        isListening = true;
+        detectedPhraseEl.textContent = 'Listening...';
+      };
+      
+      recognition.onresult = function(event) {
+        let final_transcript = '';
+        let interim_transcript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const transcript = event.results[i][0].transcript;
+          
+          if (event.results[i].isFinal) {
+            final_transcript += transcript;
+            
+            // Process the completed speech
+            const inputPhrase = phraseFilterInput.value.trim().replace(/^"+|"+$/g, '').toLowerCase();
+            
+            // Check if "count" is in the input and detect numbers
+            if (inputPhrase === "count" || inputPhrase === "") {
+              const detectedNumber = extractNumberFromTranscript(final_transcript.toLowerCase());
+              if (detectedNumber) {
+                // If a number is detected when in count mode, SET the counter to that number
+                const now = Date.now();
+                if (now - lastRecognitionTime > cooldownTime) {
+                  // Try to parse the numeric value
+                  const numValue = parseNumberFromString(detectedNumber);
+                  if (numValue !== null) {
+                    setCounterTo(numValue);
+                    lastRecognitionTime = now;
+                    detectedPhraseEl.textContent = `Counter set to: "${detectedNumber}"`;
+                  } else {
+                    // If we can't parse the number, just increment as before
+                    incrementCounter();
+                    lastRecognitionTime = now;
+                    detectedPhraseEl.textContent = `Counted: "${detectedNumber}"`;
+                  }
+                }
+              } else if (final_transcript.toLowerCase().includes("count")) {
+                // If "count" is detected, increment counter
+                const now = Date.now();
+                if (now - lastRecognitionTime > cooldownTime) {
+                  incrementCounter();
+                  lastRecognitionTime = now;
+                  detectedPhraseEl.textContent = `Counted: "count"`;
+                }
+              }
+            } 
+            // Check for fuzzy phrase match
+            else if (inputPhrase && fuzzyPhraseMatch(final_transcript.toLowerCase(), inputPhrase)) {
+              // If a fuzzy match is found, increment directly
+              const now = Date.now();
+              if (now - lastRecognitionTime > cooldownTime) {
+                incrementCounter();
+                lastRecognitionTime = now;
+                detectedPhraseEl.textContent = `Detected phrase (fuzzy match): "${inputPhrase}"`;
+              }
+            }
+            // Check for the exact phrase as fallback
+            else if (inputPhrase && final_transcript.toLowerCase().includes(inputPhrase)) {
+              // If the exact phrase is found, increment directly
+              const now = Date.now();
+              if (now - lastRecognitionTime > cooldownTime) {
+                incrementCounter();
+                lastRecognitionTime = now;
+                detectedPhraseEl.textContent = `Detected phrase: "${inputPhrase}"`;
+              }
+            } else if (inputPhrase) {
+              // Otherwise try word by word matching
+              highlightMatchingWords(final_transcript, inputPhrase);
+            }
+          } else {
+            interim_transcript += transcript;
+          }
+        }
+        
+        // Update the display with both final and interim results
+        transcriptEl.innerHTML = (final_transcript ? `<strong>Final:</strong> ${final_transcript}<br>` : '') +
+                                (interim_transcript ? `<em>Interim:</em> ${interim_transcript}` : '');
+      };
+      
+      recognition.onerror = function(event) {
+        console.error('Recognition error:', event.error);
+        
+        if (event.error === 'not-allowed') {
+          alert('Microphone access denied. Please allow microphone access to use this feature.');
+        } else if (event.error === 'no-speech') {
+          // No speech detected, just log it
+          console.log('No speech detected');
+        } else {
+          alert('Error occurred in recognition: ' + event.error);
+        }
+      };
+      
+      recognition.onend = function() {
+        if (isListening) {
+          // Restart if it ended unexpectedly
+          try {
+            recognition.start();
+          } catch (e) {
+            console.error('Failed to restart recognition:', e);
+            isListening = false;
+            detectedPhraseEl.textContent = 'Stopped listening';
+          }
+        } else {
+          isListening = false;
+          detectedPhraseEl.textContent = 'Stopped listening';
+        }
+      };
+      
+      return true;
+    }
+    
+    // Draw the audio visualization
+    function visualize() {
+      // Check if visualization should continue
+      if (!visualizerActive) {
+        if (animationFrame) {
+          cancelAnimationFrame(animationFrame);
+          animationFrame = null;
+        }
+        
+        // Clear the canvas
+        if (canvasCtx) {
+          canvasCtx.fillStyle = getComputedStyle(document.body).getPropertyValue('--theme-background');
+          canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        return;
+      }
+      
+      // Set canvas dimensions if needed
+      if (canvas.width !== canvas.clientWidth) {
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+      }
+      
+      animationFrame = requestAnimationFrame(visualize);
+      
+      if (!audioContext || !analyser || !dataArray || !bufferLength) return;
+      
+      analyser.getByteFrequencyData(dataArray);
+      
+      // Get theme background color
+      canvasCtx.fillStyle = getComputedStyle(document.body).getPropertyValue('--theme-background');
+      canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Calculate bar properties
+      const barWidth = (canvas.width / bufferLength) * 2.5;
+      let barHeight;
+      let x = 0;
+      
+      // Update volume display
+      volumeText.textContent = volumeSlider.value;
+      
+      for (let i = 0; i < bufferLength; i++) {
+        // Scale height based on sensitivity
+        barHeight = dataArray[i] * (volumeSlider.value / 10);
+        
+        // Set the bar color to red with transparency based on amplitude
+        const redValue = Math.min(255, 200 + dataArray[i] / 4);
+        canvasCtx.fillStyle = `rgb(${redValue}, 0, 0)`;
+        
+        canvasCtx.fillRect(x, canvas.height - barHeight / 2, barWidth, barHeight / 2);
+        
+        x += barWidth + 1;
+        
+        // Break if we've filled the canvas width
+        if (x > canvas.width) break;
+      }
+    }
+    
+    // Setup audio visualization
+    function setupAudioVisualization() {
+      // Create audio context
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      
+      // Create data array for visualization
+      bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+      
+      // Set canvas size
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+      
+      // Set visualizer as active
+      visualizerActive = true;
+      
+      // Start visualization loop
+      visualize();
+      
+      return true;
+    }
+    
+    // Connect to microphone
+    async function connectMicrophone() {
+      try {
+        // Request microphone access
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Connect microphone to audio context
+        if (audioContext && analyser) {
+          // If we already had a source, disconnect it
+          if (source) {
+            source.disconnect();
+          }
+          
+          // Create new source from microphone stream
+          source = audioContext.createMediaStreamSource(stream);
+          source.connect(analyser);
+          
+          // Set visualizer as active
+          visualizerActive = true;
+          
+          return true;
+        } else {
+          console.error('Audio context or analyser not initialized');
+          return false;
+        }
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
+        alert('Could not access the microphone. Please check your permissions and try again.');
+        return false;
+      }
+    }
+    
+    // Function to stop speech recognition
+    function stopRecognition() {
+      if (recognition) {
+        recognition.stop();
+        isListening = false;
+        detectedPhraseEl.textContent = 'Stopped listening';
+        
+        // Update toggle state
+        if (listenToggle && listenToggle.checked) {
+          listenToggle.checked = false;
+        }
+      }
+      
+      // Stop visualizer
+      visualizerActive = false;
+      
+      // Disconnect microphone if connected
+      if (source) {
+        source.disconnect();
+        source = null;
+      }
+      
+      // Clear canvas
+      if (canvasCtx) {
+        canvasCtx.fillStyle = getComputedStyle(document.body).getPropertyValue('--theme-background');
+        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+    
+    // Function to highlight matching words in the input
+    function highlightMatchingWords(spoken, inputPhrase) {
+      if (!inputPhrase) return;
+      
+      const spokenLower = spoken.toLowerCase();
+      
+      // Only process if there's spoken content
+      if (spokenLower) {
+        // Check if the next word in sequence is found
+        const nextIndex = lastRecognizedIndex + 1;
+        
+        if (nextIndex < wordSequence.length) {
+          const nextWord = wordSequence[nextIndex].toLowerCase();
+          
+          // Check if the next expected word is in the spoken text
+          if (spokenLower.includes(nextWord)) {
+            // Track this word as recognized
+            recognizedWords[nextWord] = true;
+            lastRecognizedIndex = nextIndex;
+            
+            // If all words are recognized, increment the counter
+            if (lastRecognizedIndex === wordSequence.length - 1) {
+              const now = Date.now();
+              
+              // Check if enough time has passed since last recognition (debounce)
+              if (now - lastRecognitionTime > cooldownTime) {
+                // Generate a new color for the complete phrase
+                currentColor = generateMutedColor();
+                
+                // Update the circle color only on counter increment
+                colorCountEl.style.color = currentColor;
+                
+                // Increment counter
+                counter++;
+                colorCountEl.textContent = counter.toString();
+                lastRecognitionTime = now;
+                
+                // Update detected phrase text
+                detectedPhraseEl.textContent = `Completed phrase: "${inputPhrase}"`;
+                
+                // Reset the sequence to start over
+                resetRecognizedSequence();
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Function to reset the recognized sequence
+    function resetRecognizedSequence() {
+      // Reset recognized words
+      recognizedWords = {};
+      lastRecognizedIndex = -1;
+    }
+    
+    // Reset recognized words when counter is reset
+    function resetCounter() {
+      counter = 0;
+      colorCountEl.textContent = '0';
+      currentColor = generateMutedColor();
+      colorCountEl.style.color = currentColor;
+      
+      // Add animation effect
+      colorCountEl.style.transform = 'scale(1.1)';
+      setTimeout(() => {
+        colorCountEl.style.transform = 'scale(1)';
+      }, 200);
+    }
+    
+    // Helper function to increment counter
+    function incrementCounter() {
+      // Generate a new color for the complete phrase
+      currentColor = generateMutedColor();
+      
+      // Update the circle color
+      colorCountEl.style.color = currentColor;
+      
+      // Increment counter
+      counter++;
+      colorCountEl.textContent = counter.toString();
+      
+      // Add a little animation effect
+      colorCountEl.style.transform = 'scale(1.1)';
+      setTimeout(() => {
+        colorCountEl.style.transform = 'scale(1)';
+      }, 200);
+    }
+    
+    // Function to detect numbers in transcript
+    function extractNumberFromTranscript(transcript) {
+      const lowerTranscript = transcript.toLowerCase();
+      
+      // Common speech recognition errors: map misheard words to their likely numbers
+      const speechErrors = {
+        'when': 'one',
+        'won': 'one',
+        'to': 'two',
+        'too': 'two',
+        'for': 'four',
+        'tree': 'three'
+      };
+      
+      // Check for direct number words or their common misheard variants
+      for (const [error, correction] of Object.entries(speechErrors)) {
+        if (lowerTranscript.includes(error)) {
+          console.log(`Speech correction: "${error}" -> "${correction}"`);
+          // Replace the error with the correction in the transcript for further processing
+          const correctedTranscript = lowerTranscript.replace(new RegExp(`\\b${error}\\b`, 'g'), correction);
+          return extractNumberFromTranscript(correctedTranscript);
+        }
+      }
+      
+      // Number words mapping
+      const numberWords = {
+        'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 
+        'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9,
+        'ten': 10, 'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 
+        'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19,
+        'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50, 
+        'sixty': 60, 'seventy': 70, 'eighty': 80, 'ninety': 90,
+        'hundred': 100
+      };
+      
+      // Check for direct number words first
+      for (const [word, num] of Object.entries(numberWords)) {
+        if (lowerTranscript.includes(word)) {
+          return num;
+        }
+      }
+      
+      // Check for digit numbers (0-100)
+      const numberMatch = lowerTranscript.match(/\b([0-9]|[1-9][0-9]|100)\b/);
+      if (numberMatch) {
+        return parseInt(numberMatch[0], 10);
+      }
+      
+      return null;
+    }
+    
+    // Function for fuzzy phrase matching to handle pronunciation differences
+    function fuzzyPhraseMatch(transcript, targetPhrase) {
+      // If phrases are short, don't use fuzzy matching
+      if (targetPhrase.length < 4) return false;
+      
+      // Break both into words
+      const transcriptWords = transcript.split(/\s+/);
+      const targetWords = targetPhrase.split(/\s+/);
+      
+      // Make requirements much stricter
+      const requiredMatchPercentage = targetWords.length <= 2 ? 0.95 : 0.85;
+      
+      // Count matching words and similar sounding words
+      let matchCount = 0;
+      let processedTargetWords = new Set();
+      
+      // Check for minimal length - transcript should be roughly similar in length
+      const transcriptWordsFiltered = transcriptWords.filter(w => w.length >= 3);
+      const targetWordsFiltered = targetWords.filter(w => w.length >= 3);
+      
+      // If the transcript is too short compared to target, it's not a match
+      if (transcriptWordsFiltered.length < targetWordsFiltered.length * 0.7) {
+        return false;
+      }
+      
+      // Required - At least N% of the significant words must have exact matches
+      const exactMatchRequired = Math.ceil(targetWordsFiltered.length * 0.4);
+      let exactMatchCount = 0;
+      
+      for (const targetWord of targetWords) {
+        // Skip very short words for matching
+        if (targetWord.length < 3) continue;
+        
+        // Look for exact matches first
+        let foundMatch = false;
+        for (const transcriptWord of transcriptWords) {
+          if (transcriptWord === targetWord) {
+            matchCount++;
+            exactMatchCount++;
+            foundMatch = true;
+            break;
+          } else if (transcriptWord.includes(targetWord) || targetWord.includes(transcriptWord)) {
+            // Partial containment is less valuable
+            matchCount += 0.8;
+            foundMatch = true;
+            break;
+          }
+        }
+        
+        // If no exact match, look for phonetic similarity
+        if (!foundMatch) {
+          for (const transcriptWord of transcriptWords) {
+            if (transcriptWord.length < 3) continue;
+            
+            // Check for edit distance - be more strict with the distance
+            const maxDistance = Math.min(2, Math.floor(targetWord.length * 0.3));
+            if (levenshteinDistance(transcriptWord, targetWord) <= maxDistance) {
+              matchCount += 0.6; // Reduced credit for similar words
+              break;
+            }
+            
+            // Check for same starting and ending sounds - only if word length is similar
+            if (Math.abs(transcriptWord.length - targetWord.length) <= 2 &&
+                transcriptWord.charAt(0) === targetWord.charAt(0) && 
+                transcriptWord.charAt(transcriptWord.length - 1) === targetWord.charAt(targetWord.length - 1)) {
+              matchCount += 0.4; // Reduced credit
+              break;
+            }
+          }
+        }
+      }
+      
+      // Calculate match percentage
+      const matchPercentage = matchCount / targetWords.length;
+      
+      // For debugging
+      console.log(`Fuzzy match: "${transcript}" vs "${targetPhrase}" = ${matchPercentage.toFixed(2)}, exact matches: ${exactMatchCount}/${exactMatchRequired}`);
+      
+      // Need both sufficient overall match quality AND enough exact matches
+      return matchPercentage >= requiredMatchPercentage && exactMatchCount >= exactMatchRequired;
+    }
+    
+    // Levenshtein distance calculation for word similarity
+    function levenshteinDistance(a, b) {
+      if (a.length === 0) return b.length;
+      if (b.length === 0) return a.length;
+      
+      const matrix = [];
+      
+      // Initialize the matrix
+      for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+      }
+      
+      for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+      }
+      
+      // Fill in the matrix
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          const cost = a.charAt(j - 1) === b.charAt(i - 1) ? 0 : 1;
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j] + 1,      // deletion
+            matrix[i][j - 1] + 1,      // insertion
+            matrix[i - 1][j - 1] + cost // substitution
+          );
+        }
+      }
+      
+      return matrix[b.length][a.length];
+    }
+    
+    // Function to set the counter to a specific number
+    function setCounterTo(number) {
+      // Generate a new color for the change
+      currentColor = generateMutedColor();
+      
+      // Update the circle color
+      colorCountEl.style.color = currentColor;
+      
+      // Set counter to the specified number
+      counter = number;
+      colorCountEl.textContent = counter.toString();
+      
+      // Add animation effect
+      colorCountEl.style.transform = 'scale(1.2)';
+      setTimeout(() => {
+        colorCountEl.style.transform = 'scale(1)';
+      }, 300);
+    }
+    
+    // Function to parse number from various string formats
+    function parseNumberFromString(numberStr) {
+      // First try direct conversion
+      let numValue = parseInt(numberStr);
+      if (!isNaN(numValue)) {
+        return numValue;
+      }
+      
+      // If that fails, try looking up word-to-number mappings
+      const numberWords = {
+        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+        "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+        "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
+        "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70,
+        "eighty": 80, "ninety": 90, "hundred": 100
+      };
+      
+      // Check for compound numbers like "twenty one"
+      if (numberStr.includes(" ")) {
+        const parts = numberStr.split(" ");
+        let total = 0;
+        
+        for (const part of parts) {
+          if (numberWords[part]) {
+            if (numberWords[part] === 100) {
+              // Handle "hundred" - multiply previous value
+              if (total === 0) total = 100;
+              else total *= 100;
+            } else {
+              total += numberWords[part];
+            }
+          }
+        }
+        
+        if (total > 0) return total;
+      }
+      
+      // Direct lookup for single word
+      return numberWords[numberStr] || null;
+    }
+    
+    // Wait for DOM to be fully loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize DOM element references
+      listenToggle = document.getElementById('listen-toggle');
+      incrementBtn = document.getElementById('increment-btn');
+      resetCounterBtn = document.getElementById('reset-counter-btn');
+      phraseFilterInput = document.getElementById('phrase-filter');
+      volumeSlider = document.getElementById('volume-slider');
+      volumeText = document.getElementById('volume-text');
+      transcriptEl = document.getElementById('speech-transcript');
+      colorCountEl = document.getElementById('color-count');
+      detectedPhraseEl = document.getElementById('detected-phrase');
+      canvas = document.getElementById('audio-visualizer');
+      canvasCtx = canvas.getContext('2d');
+      themeToggle = document.getElementById('theme-toggle');
+      themeIcon = document.getElementById('theme-icon');
+      themeText = document.getElementById('theme-text');
+      const clearInputBtn = document.getElementById('clear-input-btn');
+      const phraseContainer = document.querySelector('.phrase-filter-container');
+      
+      // Default phrase
+      const defaultPhrase = "count";
+      
+      // Initialize phrases
+      phraseFilterInput.value = `"${defaultPhrase}"`;
+      wordSequence = defaultPhrase.split(/\s+/).filter(word => word.length > 0);
+      detectedPhraseEl.textContent = `Listening for: "${defaultPhrase}"`;
+      
+      // Add quotes to the phrase filter value
+      // Function to ensure quotes are added correctly
+      function updateQuotes() {
+        let value = phraseFilterInput.value;
+        
+        // Remove any existing quotes
+        value = value.replace(/^"+|"+$/g, '');
+        
+        // If empty, use default phrase
+        if (!value.trim()) {
+          value = defaultPhrase;
+        }
+        
+        // Add quotes back
+        phraseFilterInput.value = `"${value}"`;
+        
+        // Update the word sequence without quotes for recognition
+        wordSequence = value.split(/\s+/).filter(word => word.length > 0);
+        detectedPhraseEl.textContent = `Listening for: "${value}"`;
+      }
+      
+      // Remove quotes when input is focused
+      function removeQuotes() {
+        let value = phraseFilterInput.value;
+        
+        // Remove any existing quotes
+        value = value.replace(/^"+|"+$/g, '');
+        
+        // Set value without quotes (keep as is, even if empty)
+        phraseFilterInput.value = value;
+      }
+      
+      // Initialize with quotes
+      updateQuotes();
+      
+      // Add event listeners to maintain quotes
+      phraseFilterInput.addEventListener('input', function() {
+        // Get cursor position
+        const cursorPos = this.selectionStart;
+        
+        // Store original value
+        const originalValue = this.value;
+        
+        // Remove quotes for processing
+        let value = originalValue.replace(/^"+|"+$/g, '');
+        
+        // Update word sequence for recognition
+        wordSequence = value.split(/\s+/).filter(word => word.length > 0);
+        detectedPhraseEl.textContent = `Listening for: "${value}"`;
+      });
+      
+      // When losing focus, ensure quotes are maintained
+      phraseFilterInput.addEventListener('blur', updateQuotes);
+      
+      // When focusing, remove quotes
+      phraseFilterInput.addEventListener('focus', removeQuotes);
+      
+      // Clear button functionality
+      if (clearInputBtn) {
+        clearInputBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log("Clear button clicked");
+          
+          // Clear the input but keep the quotes
+          phraseFilterInput.value = '""';
+          
+          // Update the word sequence
+          const value = '';
+          wordSequence = value ? value.split(/\s+/).filter(word => word.length > 0) : [defaultPhrase];
+          detectedPhraseEl.textContent = `Listening for: "${defaultPhrase}"`;
+          
+          // Keep focus on the input
+          phraseFilterInput.focus();
+          
+          // Position cursor between quotes
+          setTimeout(() => {
+            phraseFilterInput.selectionStart = phraseFilterInput.selectionEnd = 1;
+          }, 0);
+        });
+        
+        // Show/hide clear button based on focus
+        phraseFilterInput.addEventListener('focus', function() {
+          console.log("Input focused");
+          phraseContainer.classList.add('focused');
+        });
+        
+        phraseFilterInput.addEventListener('blur', function() {
+          console.log("Input blurred");
+          // Small delay to allow click events on the button to trigger first
+          setTimeout(() => {
+            phraseContainer.classList.remove('focused');
+          }, 100);
+        });
+      } else {
+        console.error("Clear button element not found");
+      }
+      
+      // Event listeners
+      listenToggle.addEventListener('change', async function() {
+        if (this.checked) {
+          // Start listening
+          // Initialize speech recognition if not already done
+          if (!recognition) {
+            setupSpeechRecognition();
+          }
+          
+          // Initialize audio context if not already done
+          if (!audioContext) {
+            setupAudioVisualization();
+          } else {
+            // If audio context exists but visualization is not active, restart it
+            visualizerActive = true;
+            visualize();
+          }
+          
+          // Request microphone access
+          const microphoneConnected = await connectMicrophone();
+          
+          // Only start recognition if microphone is connected
+          if (microphoneConnected) {
+            // Start recognition
+            try {
+              recognition.start();
+              isListening = true;
+              detectedPhraseEl.textContent = 'Listening...';
+            } catch (e) {
+              console.error('Recognition start error:', e);
+              alert('Error starting recognition: ' + e.message);
+              this.checked = false;
+              visualizerActive = false;
+            }
+          } else {
+            this.checked = false;
+            visualizerActive = false;
+          }
+        } else {
+          // Stop listening
+          stopRecognition();
+        }
+      });
+      
+      incrementBtn.addEventListener('click', function() {
+        incrementCounter();
+      });
+      
+      resetCounterBtn.addEventListener('click', function() {
+        resetCounter();
+      });
+      
+      volumeSlider.addEventListener('input', function() {
+        volumeText.textContent = this.value;
+      });
+      
+      // Theme toggle functionality
+      themeToggle.addEventListener('click', function() {
+        document.body.classList.toggle('light-theme');
+        
+        if (document.body.classList.contains('light-theme')) {
+          themeIcon.textContent = '☀️';
+          themeText.textContent = 'Dark Mode';
+        } else {
+          themeIcon.textContent = '🌙';
+          themeText.textContent = 'Light Mode';
+        }
+        
+        // Save theme preference
+        localStorage.setItem('theme', document.body.classList.contains('light-theme') ? 'light' : 'dark');
+      });
+      
+      // Restore theme preference
+      if (localStorage.getItem('theme') === 'light') {
+        document.body.classList.add('light-theme');
+        themeIcon.textContent = '☀️';
+        themeText.textContent = 'Dark Mode';
+      }
+    });
+  </script>
+</body>
+</html>

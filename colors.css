@@ -1,0 +1,46 @@
+/* Color Variables for 100 Times Challenge App */
+:root {
+    /* Base colors */
+    --color-background: #1C1C1C;
+    --color-background-secondary: #1e1e1e;
+    --color-black: #000000;
+    
+    /* Border & Structural colors */
+    --color-border: #434343;
+    --color-border-transparent: #43434377;
+    --color-inactive: #4E4E4E;
+    --color-border-focus: #333;
+    
+    /* Text colors */
+    --color-text-primary: #e0e0e0;
+    --color-text-secondary: #777;
+    --color-text-tertiary: #aaa;
+    --color-text-transcript: #ccc;
+    --color-white: #ffffff;
+    
+    /* Accent colors */
+    --accent-color: #14DCFF;
+    --color-accent-pink: #E91E63;
+    --color-accent-pink-bright: #ff4081;
+    --color-accent-red: #FF0000;
+    --color-accent-red-dark: #600000;
+    --color-accent-green: #4caf50;
+    --color-button-disabled: #555;
+    
+    /* Button colors */
+    --color-button-danger: #f44336;
+    --color-button-danger-hover: #d32f2f;
+    --color-button-danger-active: #b71c1c;
+    --color-button-secondary: #444;
+    --color-button-secondary-hover: #555;
+    
+    /* Overlay & Shadow colors */
+    --color-overlay: rgba(0, 0, 0, 0.8);
+    --color-shadow-light: rgba(0, 0, 0, 0.2);
+    --color-shadow-medium: rgba(0, 0, 0, 0.3);
+    --color-shadow-heavy: rgba(0, 0, 0, 0.5);
+    --color-hover-light: rgba(255, 255, 255, 0.05);
+    --color-hover-medium: rgba(255, 255, 255, 0.1);
+    --color-input-background: rgba(255, 255, 255, 0.1);
+    --color-white-transparent: rgba(255, 255, 255, 0.8);
+}
