@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function () {
   let microphone = null
   let microphoneStream = null // Store the stream to properly close it
   let animationId = null
-  let audioSensitivity = 1 // Default sensitivity threshold (on 1-10 scale)
+  let audioSensitivity = 3 // Default sensitivity threshold (on 1-5 scale)
   let audioTriggerActive = false // Flag to prevent double counting
   let lastAudioState = false // false = silence, true = audio detected
   let audioStateChangeTimeout = null // Timeout for audio state changes
@@ -94,8 +94,8 @@ document.addEventListener('DOMContentLoaded', function () {
   let userMotivation = ''
   let settings = {
     darkMode: false,
-    displayMode: 'random',
-    audioSensitivity: 1,
+    displayMode: 'big',
+    audioSensitivity: 3,
   }
   let isAnimating = false
   let bigModeAnimationTimeout = null
@@ -278,8 +278,8 @@ document.addEventListener('DOMContentLoaded', function () {
           userMotivation = parsed.userMotivation || ''
           settings = parsed.settings || {
             darkMode: false,
-            displayMode: 'random',
-            audioSensitivity: 1,
+            displayMode: 'big',
+            audioSensitivity: 3,
           }
 
           // Ensure we have valid dayData
@@ -442,7 +442,7 @@ document.addEventListener('DOMContentLoaded', function () {
       initializeData()
       currentDay = 1
       userMotivation = ''
-      settings = { darkMode: false, displayMode: 'random', audioSensitivity: 1 }
+      settings = { darkMode: false, displayMode: 'big', audioSensitivity: 3 }
 
       // Still update the UI to avoid hanging
       updateUI()
@@ -2634,9 +2634,9 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('voice-toggle').classList.remove('active')
     }
 
-    // Apply audio sensitivity setting - explicitly set to 1 if not defined
+    // Apply audio sensitivity setting - explicitly set to 3 if not defined
     if (typeof settings.audioSensitivity === 'undefined') {
-      settings.audioSensitivity = 1
+      settings.audioSensitivity = 3
     }
     audioSensitivity = settings.audioSensitivity
 
