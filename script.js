@@ -677,6 +677,9 @@ document.addEventListener('DOMContentLoaded', function () {
   function setupEventListeners() {
     // Auto-resize textarea
     const userSentenceTextarea = document.getElementById('user-sentence')
+    const textareaWrapper = document.querySelector('.textarea-wrapper')
+    const clearButton = document.getElementById('clear-button')
+
     if (userSentenceTextarea) {
       function autoResize() {
         userSentenceTextarea.style.height = 'auto'
@@ -689,8 +692,54 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(autoResize, 0)
       )
 
+      // Show/hide clear button on focus/blur
+      userSentenceTextarea.addEventListener('focus', () => {
+        if (textareaWrapper) {
+          textareaWrapper.classList.add('focused')
+        }
+      })
+
+      userSentenceTextarea.addEventListener('blur', (e) => {
+        // Don't hide if clicking on clear button
+        if (e.relatedTarget !== clearButton) {
+          if (textareaWrapper) {
+            textareaWrapper.classList.remove('focused')
+          }
+        }
+      })
+
       // Initial resize
       autoResize()
+    }
+
+    // Clear button functionality
+    if (clearButton) {
+      clearButton.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+
+        // Clear the textarea
+        userSentenceTextarea.value = ''
+        userMotivation = ''
+
+        // Trigger auto-resize
+        if (userSentenceTextarea) {
+          userSentenceTextarea.style.height = 'auto'
+          userSentenceTextarea.style.height =
+            Math.max(44, userSentenceTextarea.scrollHeight) + 'px'
+        }
+
+        // Save the change
+        saveProgress()
+
+        // Refocus the textarea
+        userSentenceTextarea.focus()
+      })
+
+      // Prevent blur when clicking clear button
+      clearButton.addEventListener('mousedown', (e) => {
+        e.preventDefault()
+      })
     }
 
     // Count button event - adding both click and touchstart for better mobile response
@@ -2180,6 +2229,56 @@ document.addEventListener('DOMContentLoaded', function () {
           console.error('Error stopping recognition:', e)
         }
       }
+
+      // Stop all audio recording and reset the system
+      if (microphoneStream) {
+        microphoneStream.getTracks().forEach((track) => {
+          track.stop()
+          console.log('Stopped microphone track')
+        })
+        microphoneStream = null
+      }
+
+      // Disconnect microphone if connected
+      if (microphone) {
+        microphone.disconnect()
+        microphone = null
+        console.log('Disconnected microphone')
+      }
+
+      // Cancel animation frame
+      if (animationId) {
+        cancelAnimationFrame(animationId)
+        animationId = null
+      }
+
+      // Suspend audio context to free resources
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext
+          .suspend()
+          .then(() => {
+            console.log('Audio context suspended')
+            // Set to null so it properly reinitializes on restart
+            audioContext = null
+            analyser = null
+          })
+          .catch((e) => {
+            console.error('Error suspending audio context:', e)
+            // Set to null even if suspend fails
+            audioContext = null
+            analyser = null
+          })
+      } else {
+        // Set to null if context is already closed or doesn't exist
+        audioContext = null
+        analyser = null
+      }
+
+      // Reset audio state variables
+      lastAudioState = false
+      audioTriggerActive = false
+      fullTranscript = ''
+      lastPhraseDetectionTime = 0
 
       // Reset visualizer and remove active class
       const bars = document.querySelectorAll('.audio-visualizer .bar')
