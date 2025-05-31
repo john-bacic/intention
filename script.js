@@ -1148,19 +1148,17 @@ document.addEventListener('DOMContentLoaded', function () {
         'touchstart',
         function (e) {
           this.classList.add('touch-active')
-          // Prevent page scroll when dragging slider
-          e.preventDefault()
+          // Don't prevent default - let the slider handle touch events naturally
         },
-        { passive: false }
+        { passive: true }
       )
 
       sensitivitySlider.addEventListener(
         'touchmove',
         function (e) {
-          // Allow slider dragging without page scroll
-          e.preventDefault()
+          // Don't prevent default - let the slider handle dragging naturally
         },
-        { passive: false }
+        { passive: true }
       )
 
       sensitivitySlider.addEventListener('touchend', function (e) {
