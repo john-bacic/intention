@@ -1143,14 +1143,45 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       }
 
-      // Add touch-specific improvements
-      sensitivitySlider.addEventListener('touchstart', function () {
+      // Enhanced mobile touch support
+      sensitivitySlider.addEventListener(
+        'touchstart',
+        function (e) {
+          this.classList.add('touch-active')
+          // Prevent page scroll when dragging slider
+          e.preventDefault()
+        },
+        { passive: false }
+      )
+
+      sensitivitySlider.addEventListener(
+        'touchmove',
+        function (e) {
+          // Allow slider dragging without page scroll
+          e.preventDefault()
+        },
+        { passive: false }
+      )
+
+      sensitivitySlider.addEventListener('touchend', function (e) {
+        this.classList.remove('touch-active')
+        // Small delay to ensure value is updated
+        setTimeout(() => {
+          handleSensitivityChange()
+        }, 50)
+      })
+
+      // Mouse events for desktop
+      sensitivitySlider.addEventListener('mousedown', function () {
         this.classList.add('touch-active')
       })
 
-      sensitivitySlider.addEventListener('touchend', function () {
+      sensitivitySlider.addEventListener('mouseup', function () {
         this.classList.remove('touch-active')
       })
+
+      // Ensure value updates on all interaction types
+      sensitivitySlider.addEventListener('change', handleSensitivityChange)
     }
   }
 
