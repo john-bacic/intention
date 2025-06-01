@@ -288,6 +288,15 @@ h1 {
     background-color: #080808;
 }
 
+/* Disable hover effects on touch devices */
+@media (hover: none) and (pointer: coarse) {
+    .clear-button:hover {
+        opacity: 0.7;
+        color: rgb(225, 225, 225);
+        background-color: #090909;
+    }
+}
+
 .clear-button:active {
     transform: scale(0.9);
 }
