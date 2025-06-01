@@ -807,7 +807,7 @@ document.addEventListener('DOMContentLoaded', function () {
           'Are you sure you want to reset all progress? This cannot be undone.'
         )
       ) {
-        // Save the current display mode settings before resetting
+        // Save the current display mode settings and user motivation before resetting
         const currentSettings = {
           darkMode: settings.darkMode,
           displayMode: settings.displayMode,
@@ -816,11 +816,11 @@ document.addEventListener('DOMContentLoaded', function () {
         // Remove all data from localStorage
         localStorage.removeItem(STORAGE_KEY)
 
-        // Create new data with preserved settings
+        // Create new data with preserved settings and motivation
         const newData = {
           dayData: [],
           currentDay: 1,
-          userMotivation: '',
+          userMotivation: userMotivation, // Preserve the current motivation
           settings: currentSettings,
         }
 
@@ -839,7 +839,7 @@ document.addEventListener('DOMContentLoaded', function () {
           'Are you sure you want to reset all progress? This cannot be undone.'
         )
       ) {
-        // Save the current display mode settings before resetting
+        // Save the current display mode settings and user motivation before resetting
         const currentSettings = {
           darkMode: settings.darkMode,
           displayMode: settings.displayMode,
@@ -848,11 +848,11 @@ document.addEventListener('DOMContentLoaded', function () {
         // Remove all data from localStorage
         localStorage.removeItem(STORAGE_KEY)
 
-        // Create new data with preserved settings
+        // Create new data with preserved settings and motivation
         const newData = {
           dayData: [],
           currentDay: 1,
-          userMotivation: '',
+          userMotivation: userMotivation, // Preserve the current motivation
           settings: currentSettings,
         }
 
